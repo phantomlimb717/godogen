@@ -1,6 +1,6 @@
 # Asset Generator
 
-Generate PNG images (Gemini or xAI Grok) and GLB 3D models (Tripo3D) from text prompts.
+Generate PNG images (Gemini, xAI Grok, OpenAI DALL-E, or Replicate Flux) and GLB 3D models (Tripo3D) from text prompts.
 
 ## Models
 
@@ -8,12 +8,16 @@ Generate PNG images (Gemini or xAI Grok) and GLB 3D models (Tripo3D) from text p
 |-------|------|------|----------|
 | `gemini-3.1-flash-image-preview` | `--model gemini` | 5-15¢ (by size) | Precise prompt following — references, characters, backgrounds, 3D refs |
 | `grok-imagine-image` | `--model grok` | 2¢ | High-quality but imprecise — textures, simple objects, item kits |
+| `dall-e-3` | `--model openai` | 4¢ | High-quality structured generations, stylized art |
+| `black-forest-labs/flux-schnell` | `--model replicate`| 1¢ | Extremely fast, cheap textures or simple kits |
 
 **When to use which:**
 - **Gemini** — reference images, character design, 3D model references, animated sprite refs/poses, backgrounds with precise layout. Gemini costs more but reliably produces what you described.
 - **Grok** — textures, simple objects, item kits, props, simple scenic backgrounds (sky, clouds, abstract). Produces high-quality (even photographic) output but often defaults to common interpretations instead of following specific instructions. Great when exact prompt adherence doesn't matter.
+- **OpenAI** — good for stylized illustrations, items, and detailed props. Use when Grok struggles with prompt adherence but Gemini is too expensive or stylistically inappropriate.
+- **Replicate (Flux)** — cheapest option. Great for churning out raw textures and basic item kits where visual detail matters more than structure.
 
-Default is `grok`. Switch to `gemini` when precision matters.
+Default is `grok`. Switch to `gemini` when precision matters, or use `openai`/`replicate` as budget/style alternatives.
 
 ### Gemini sizes and costs
 
@@ -28,21 +32,23 @@ Default is `grok`. Switch to `gemini` when precision matters.
 
 Tools live at `${CLAUDE_SKILL_DIR}/tools/`. Run from the project root.
 
-### Generate image (2-15 cents)
+### Generate image (1-15 cents)
 
 ```bash
 python3 ${CLAUDE_SKILL_DIR}/tools/asset_gen.py image \
   --prompt "the full prompt" -o assets/img/car.png
 ```
 
-`--model` (default `grok`): `grok` (2¢), `gemini` (5-15¢ by size)
-`--size` (default `1K`): Grok: `1K`, `2K`. Gemini: `512`, `1K`, `2K`, `4K`.
-`--aspect-ratio` (default `1:1`): varies by backend — both support `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`
+`--model` (default `grok`): `grok` (2¢), `gemini` (5-15¢ by size), `openai` (4¢), `replicate` (1¢)
+`--size` (default `1K`): Grok: `1K`, `2K`. Gemini: `512`, `1K`, `2K`, `4K`. OpenAI: `1024x1024`, `1024x1792`, `1792x1024`. Replicate: `1024x1024`, `1024x576`, `576x1024`.
+`--aspect-ratio` (default `1:1`): varies by backend — Grok/Gemini support `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`
 
 Typical combos:
 - `--model gemini --size 1K` — reference images, character sprites, 3D refs (7¢)
 - `--model gemini --size 2K --aspect-ratio 16:9` — backgrounds, title screens (10¢)
 - `--model grok` — textures, simple objects, item kits (2¢)
+- `--model replicate --size 1024x1024` — cheap textures or basic simple shapes (1¢)
+- `--model openai --size 1024x1024` — stylistic items or illustrated character references (4¢)
 
 ### Remove background
 
@@ -150,7 +156,9 @@ Progress goes to stderr.
 
 | Operation | Options | Cost | Notes |
 |-----------|---------|------|-------|
+| Image | --model replicate | 1 cent | Cheapest, fast simple assets |
 | Image | --model grok | 2 cents | Fast, simple images |
+| Image | --model openai | 4 cents | Stylized references, detailed props |
 | Image | --model gemini --size 512 | 5 cents | Small refs, quick tests |
 | Image | --model gemini --size 1K | 7 cents | References, characters, 3D refs |
 | Image | --model gemini --size 2K | 10 cents | Backgrounds, title screens |

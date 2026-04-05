@@ -144,6 +144,8 @@ Set in environment:
 
 - `GOOGLE_API_KEY` — Gemini image generation (references, characters, precise work)
 - `XAI_API_KEY` — xAI Grok image/video generation (textures, simple objects)
+- `OPENAI_API_KEY` — OpenAI image generation (DALL-E 3)
+- `REPLICATE_API_TOKEN` — Replicate image generation (Flux)
 - `TRIPO3D_API_KEY` — image-to-3D conversion (3D games only)
 
 ## Verify
