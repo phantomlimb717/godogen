@@ -1,5 +1,7 @@
 xai-sdk
 google-genai
+openai
+replicate
 requests
 numpy
 pillow

@@ -31,8 +31,8 @@ The scaffold's Asset Hints describe what the architecture needs. The decomposer'
 ### 2. Prioritize and budget
 
 Each asset costs:
-- Texture / simple sprite (Grok): 2 cents
-- Character / reference / 3D ref (Gemini 1K): 7 cents
+- Texture / simple sprite: 1 cent (Replicate Flux) or 2 cents (Grok)
+- Character / reference / 3D ref: 4 cents (OpenAI) or 7 cents (Gemini 1K)
 - Background: 2 cents (Grok, simple scenic) or 10 cents (Gemini 2K, precise layout)
 - 3D model: 37 cents (7 cent Gemini image + 30 cent GLB at medium quality)
 
@@ -57,7 +57,7 @@ Craft each prompt for its specific goal. The art direction tells you the visual 
 
 #### Backend selection
 
-Use Gemini (`--model gemini`) where prompt precision matters — reference images, character design, 3D model references, animated sprite refs/poses, backgrounds with precise layout. Use Grok (default) for textures, simple objects, item kits, and simple scenic backgrounds (sky, clouds, abstract).
+Use Gemini (`--model gemini`) where prompt precision matters — reference images, character design, 3D model references, animated sprite refs/poses, backgrounds with precise layout. Use Grok (default) for textures, simple objects, item kits, and simple scenic backgrounds (sky, clouds, abstract). You can also use OpenAI (`--model openai`) when Gemini is too expensive but you need stylistically coherent items, or Replicate (`--model replicate`) for ultra-cheap (1¢) rapid texture and kit generation.
 
 #### Using image references for consistency
 

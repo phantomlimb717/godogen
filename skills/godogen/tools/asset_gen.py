@@ -18,6 +18,8 @@ from pathlib import Path
 
 import requests
 import xai_sdk
+import openai
+import replicate
 from google import genai
 from google.genai import types
 from PIL import Image
@@ -102,7 +104,15 @@ GROK_ASPECT_RATIOS = [
     "2:1", "1:2", "19.5:9", "9:19.5", "20:9", "9:20", "auto",
 ]
 
-ALL_SIZES = ["512", "1K", "2K", "4K"]
+OPENAI_MODEL = "dall-e-3"
+OPENAI_COST = 4 # cents
+OPENAI_SIZES = ["1024x1024", "1024x1792", "1792x1024"]
+
+REPLICATE_MODEL = "black-forest-labs/flux-schnell"
+REPLICATE_COST = 1 # cents
+REPLICATE_SIZES = ["1024x1024", "1024x576", "576x1024"]
+
+ALL_SIZES = ["512", "1K", "2K", "4K", "1024x1024", "1024x1792", "1792x1024", "1024x576", "576x1024"]
 ALL_ASPECT_RATIOS = sorted(set(GEMINI_ASPECT_RATIOS + GROK_ASPECT_RATIOS))
 
 
@@ -165,6 +175,85 @@ def _generate_gemini(args, output: Path, cost: int):
     sys.exit(1)
 
 
+def _generate_openai(args, output: Path, cost: int):
+    if args.image:
+        result_json(False, error="OpenAI DALL-E 3 does not support image-to-image in this implementation.")
+        sys.exit(1)
+
+    try:
+        client = openai.Client()
+        response = client.images.generate(
+            model=OPENAI_MODEL,
+            prompt=args.prompt,
+            size=args.size, # E.g., "1024x1024", "1024x1792", "1792x1024"
+            quality="standard",
+            n=1,
+            response_format="b64_json"
+        )
+        b64 = response.data[0].b64_json
+        img_data = base64.b64decode(b64)
+        output.write_bytes(img_data)
+    except Exception as e:
+        result_json(False, error=str(e))
+        sys.exit(1)
+
+    print(f"Saved: {output}", file=sys.stderr)
+    record_spend(cost, "openai")
+    result_json(True, path=str(output), cost_cents=cost)
+
+
+def _generate_replicate(args, output: Path, cost: int):
+    # Parse size for Replicate
+    # "1024x1024" -> "1:1", "1024x576" -> "16:9", "576x1024" -> "9:16"
+    width, height = map(int, args.size.split('x'))
+    aspect_ratio_map = {
+        "1024x1024": "1:1",
+        "1024x576": "16:9",
+        "576x1024": "9:16"
+    }
+    aspect_ratio = aspect_ratio_map.get(args.size, "1:1")
+
+    input_args = {
+        "prompt": args.prompt,
+        "aspect_ratio": aspect_ratio,
+        "output_format": "png"
+    }
+
+    if args.image:
+        ref_path = Path(args.image)
+        if not ref_path.exists():
+            result_json(False, error=f"Reference image not found: {ref_path}")
+            sys.exit(1)
+        input_args["image"] = open(ref_path, "rb")
+
+    try:
+        # replicate.run returns an iterator or list of URLs, typically one for flux-schnell
+        result = replicate.run(
+            REPLICATE_MODEL,
+            input=input_args
+        )
+        if isinstance(result, list) and len(result) > 0:
+            image_url = result[0]
+        else:
+            image_url = result # Sometimes it returns a single file directly
+
+        if hasattr(image_url, "read"): # It might be a FileOutput object
+            img_data = image_url.read()
+        else:
+            dl = requests.get(image_url, timeout=60)
+            dl.raise_for_status()
+            img_data = dl.content
+
+        output.write_bytes(img_data)
+    except Exception as e:
+        result_json(False, error=str(e))
+        sys.exit(1)
+
+    print(f"Saved: {output}", file=sys.stderr)
+    record_spend(cost, "replicate")
+    result_json(True, path=str(output), cost_cents=cost)
+
+
 def _generate_grok(args, output: Path, cost: int):
     image_url = None
     if args.image:
@@ -204,6 +293,25 @@ def cmd_image(args):
             result_json(False, error=f"Gemini does not support size {size}. Use: {', '.join(GEMINI_SIZES)}")
             sys.exit(1)
         cost = GEMINI_COSTS[size]
+    elif backend == "openai":
+        # Note: if a default size like 1K is passed, we might need to overwrite it, but we can enforce OPENAI_SIZES.
+        if size not in OPENAI_SIZES:
+            if size == "1K": # Default override
+                size = "1024x1024"
+                args.size = size
+            else:
+                result_json(False, error=f"OpenAI does not support size {size}. Use: {', '.join(OPENAI_SIZES)}")
+                sys.exit(1)
+        cost = OPENAI_COST
+    elif backend == "replicate":
+        if size not in REPLICATE_SIZES:
+            if size == "1K":
+                size = "1024x1024"
+                args.size = size
+            else:
+                result_json(False, error=f"Replicate does not support size {size}. Use: {', '.join(REPLICATE_SIZES)}")
+                sys.exit(1)
+        cost = REPLICATE_COST
     else:
         if size not in GROK_SIZES:
             result_json(False, error=f"Grok does not support size {size}. Use: {', '.join(GROK_SIZES)}")
@@ -221,6 +329,10 @@ def cmd_image(args):
 
     if backend == "gemini":
         _generate_gemini(args, output, cost)
+    elif backend == "openai":
+        _generate_openai(args, output, cost)
+    elif backend == "replicate":
+        _generate_replicate(args, output, cost)
     else:
         _generate_grok(args, output, cost)
 
@@ -308,12 +420,12 @@ def main():
     parser = argparse.ArgumentParser(description="Asset Generator — images (Gemini / xAI Grok) and GLBs (Tripo3D)")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_img = sub.add_parser("image", help="Generate a PNG image (Gemini 5-15¢ or Grok 2¢)")
+    p_img = sub.add_parser("image", help="Generate a PNG image (Gemini 5-15¢ or Grok 2¢ or OpenAI 4¢ or Replicate 1¢)")
     p_img.add_argument("--prompt", required=True, help="Full image generation prompt")
-    p_img.add_argument("--model", choices=["gemini", "grok"], default="grok",
-                       help="Backend: grok (2¢, fast, simple images) or gemini (5-15¢, precise prompt following). Default: grok.")
+    p_img.add_argument("--model", choices=["gemini", "grok", "openai", "replicate"], default="grok",
+                       help="Backend: grok (2¢, fast, simple images), gemini (5-15¢, precise prompt following), openai (4¢, dall-e-3), replicate (1¢, flux-schnell). Default: grok.")
     p_img.add_argument("--size", choices=ALL_SIZES, default="1K",
-                       help="Resolution. Grok: 1K, 2K. Gemini: 512, 1K, 2K, 4K. Default: 1K.")
+                       help="Resolution. Grok: 1K, 2K. Gemini: 512, 1K, 2K, 4K. OpenAI: 1024x1024, 1024x1792, 1792x1024. Replicate: 1024x1024, 1024x576, 576x1024. Default: 1K.")
     p_img.add_argument("--aspect-ratio", choices=ALL_ASPECT_RATIOS, default="1:1",
                        help="Aspect ratio. Default: 1:1")
     p_img.add_argument("--image", default=None, help="Reference image for image-to-image edit")
