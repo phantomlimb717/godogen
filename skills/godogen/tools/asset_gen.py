@@ -226,6 +226,7 @@ def cmd_image(args):
 
 
 def cmd_video(args):
+    backend = args.model
     cost = args.duration * VIDEO_COST_PER_SEC
     check_budget(cost)
     output = Path(args.output)
@@ -236,31 +237,89 @@ def cmd_video(args):
         result_json(False, error=f"Reference image not found: {image_path}")
         sys.exit(1)
 
-    print(f"Generating {args.duration}s video ({args.resolution})...", file=sys.stderr)
-    image_url = _image_data_uri(image_path)
+    print(f"Generating {args.duration}s video ({args.resolution}) with {backend}...", file=sys.stderr)
 
-    try:
-        client = xai_sdk.Client()
-        resp = client.video.generate(
-            prompt=args.prompt,
-            model=VIDEO_MODEL,
-            image_url=image_url,
-            duration=args.duration,
-            aspect_ratio="1:1",
-            resolution=args.resolution,
-        )
-        # Download MP4
-        print("  Downloading video...", file=sys.stderr)
-        dl = requests.get(resp.url, timeout=120)
-        dl.raise_for_status()
-        output.write_bytes(dl.content)
-    except Exception as e:
-        result_json(False, error=str(e))
-        sys.exit(1)
+    if backend == "gemini":
+        try:
+            import time
+            from google import genai
+            from google.genai import types
 
-    print(f"Saved: {output}", file=sys.stderr)
-    record_spend(cost, "xai-video")
-    result_json(True, path=str(output), cost_cents=cost)
+            client = genai.Client()
+
+            with Image.open(image_path) as img:
+                # Convert to RGB if needed, but genai types.Image usually handles PIL directly.
+                # However, docs say image=image.parts[0].as_image() or image= types.Part.from_bytes(...)
+                # Wait, docs say image=image.parts[0].as_image(), but if we pass a local image,
+                # let's pass a PIL image object.
+                pil_img = img.copy()
+
+            # The docs show image=... takes an image object. We can also use PIL.Image.
+            # From docs: image=image.parts[0].as_image(). For PIL, just pass PIL Image.
+            # Note: durationSeconds can be set in config.
+
+            # Map duration to valid Gemini sizes: 4, 6, or 8 seconds
+            duration_str = str(args.duration)
+            if duration_str not in ["4", "6", "8"]:
+                # round to closest valid value
+                valid_durations = [4, 6, 8]
+                closest_duration = min(valid_durations, key=lambda x: abs(x - args.duration))
+                duration_str = str(closest_duration)
+
+            operation = client.models.generate_videos(
+                model="veo-3.1-generate-preview",
+                prompt=args.prompt,
+                image=pil_img,
+                config=types.GenerateVideosConfig(
+                    aspect_ratio="16:9", # We could parameterize this
+                    resolution=args.resolution,
+                    duration_seconds=duration_str,
+                ),
+            )
+
+            print("  Waiting for video generation to complete...", file=sys.stderr)
+            while not operation.done:
+                time.sleep(10)
+                operation = client.operations.get(operation)
+
+            generated_video = operation.response.generated_videos[0]
+            client.files.download(file=generated_video.video)
+            generated_video.video.save(str(output))
+
+        except Exception as e:
+            result_json(False, error=str(e))
+            sys.exit(1)
+
+        print(f"Saved: {output}", file=sys.stderr)
+        record_spend(cost, "gemini-video")
+        result_json(True, path=str(output), cost_cents=cost)
+
+    else:
+        # grok
+        image_url = _image_data_uri(image_path)
+
+        try:
+            client = xai_sdk.Client()
+            resp = client.video.generate(
+                prompt=args.prompt,
+                model=VIDEO_MODEL,
+                image_url=image_url,
+                duration=args.duration,
+                aspect_ratio="1:1",
+                resolution=args.resolution,
+            )
+            # Download MP4
+            print("  Downloading video...", file=sys.stderr)
+            dl = requests.get(resp.url, timeout=120)
+            dl.raise_for_status()
+            output.write_bytes(dl.content)
+        except Exception as e:
+            result_json(False, error=str(e))
+            sys.exit(1)
+
+        print(f"Saved: {output}", file=sys.stderr)
+        record_spend(cost, "xai-video")
+        result_json(True, path=str(output), cost_cents=cost)
 
 
 def cmd_glb(args):
@@ -322,9 +381,11 @@ def main():
 
     p_vid = sub.add_parser("video", help="Generate MP4 video from prompt + reference image (5¢/sec)")
     p_vid.add_argument("--prompt", required=True, help="Video generation prompt")
+    p_vid.add_argument("--model", choices=["grok", "gemini"], default="grok",
+                       help="Backend for video generation. Default: grok.")
     p_vid.add_argument("--image", required=True, help="Reference image path (starting frame)")
     p_vid.add_argument("--duration", type=int, required=True, help="Duration in seconds (1-15)")
-    p_vid.add_argument("--resolution", choices=["480p", "720p"], default="720p",
+    p_vid.add_argument("--resolution", choices=["480p", "720p", "1080p", "4k"], default="720p",
                        help="Video resolution. Default: 720p")
     p_vid.add_argument("-o", "--output", required=True, help="Output MP4 path")
     p_vid.set_defaults(func=cmd_video)
