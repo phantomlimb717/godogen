@@ -5,6 +5,16 @@ This script serves as a standalone alternative to Claude Code for orchestrating
 the Godogen AI game development pipeline using Google Gemini Pro.
 """
 
+# ==========================================
+# Cache stability invariants
+# ==========================================
+# The system prompt and tool declarations must be byte-identical
+# across every turn within a single run.
+# Any interpolated timestamp, random ID, run-specific path,
+# or reordered tool declaration invalidates the cache for the rest of the run.
+# Any future edit that breaks this silently regresses API cost.
+# ==========================================
+
 import os
 import sys
 import argparse
@@ -132,7 +142,7 @@ def lookup_godot_api(query: str) -> str:
     instructions = load_stage_instructions(".gemini/skills/godot-api/SKILL.md")
 
     # Sub-agent needs file searching tools to read the documentation
-    tools = [read_file, list_files, run_bash_command]
+    tools = sorted([read_file, list_files, run_bash_command], key=lambda f: f.__name__)
 
     config = types.GenerateContentConfig(
         system_instruction=instructions,
@@ -181,7 +191,8 @@ def list_files(directory: str = ".") -> str:
         result = []
         for root, dirs, files in os.walk(directory):
             # Skip hidden directories like .git and .gemini
-            dirs[:] = [d for d in dirs if not d.startswith('.')]
+            dirs[:] = sorted([d for d in dirs if not d.startswith('.')])
+            files = sorted(files)
             try:
                 rel_parts = Path(root).relative_to(directory).parts
                 level = len(rel_parts)
@@ -240,10 +251,10 @@ def create_orchestrator_session(client: genai.Client) -> genai.chats.Chat:
     base_instructions = load_stage_instructions(".gemini/skills/godogen/SKILL.md")
 
     # Register the tools with Gemini
-    tools = [
+    tools = sorted([
         run_asset_gen, run_tripo3d, lookup_godot_api, run_visual_qa_analysis,
         read_file, write_file, list_files, run_bash_command
-    ]
+    ], key=lambda f: f.__name__)
 
     config = types.GenerateContentConfig(
         system_instruction=base_instructions,
