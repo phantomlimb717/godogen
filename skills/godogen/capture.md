@@ -4,7 +4,7 @@ Screenshot and video capture for Godot projects. Supports Windows, macOS (Metal)
 
 The Godot project is the working directory. All paths below are relative to it.
 
-Tools live at `${CLAUDE_SKILL_DIR}/tools/`. Run from the project root.
+Tools live at `.gemini/skills/tools/`. Run from the project root.
 
 ## Setup
 
@@ -15,7 +15,7 @@ No setup is required. The `capture.py` script automatically detects the platform
 Screenshots go in `screenshots/` (gitignored). Each task gets a subfolder.
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/tools/capture.py --task {task_folder} --fps {FPS} --frames {N} --script test/test_task.gd
+python .gemini/skills/tools/capture.py --task {task_folder} --fps {FPS} --frames {N} --script test/test_task.gd
 ```
 
 Where `{task_folder}` is derived from the task name/number (e.g., `task_01_terrain`). Use lowercase with underscores. The tool manages timeouts inherently.
@@ -31,7 +31,7 @@ Where `{task_folder}` is derived from the task name/number (e.g., `task_01_terra
 Video capture requires hardware rendering (Windows natively, macOS Metal, or Linux with GPU). Software rendering is too slow for video — the tool skips and reports if GPU is unavailable.
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/tools/capture.py --video --task presentation --fps 30 --frames 900 --script test/presentation.gd
+python .gemini/skills/tools/capture.py --video --task presentation --fps 30 --frames 900 --script test/presentation.gd
 ```
 
 The script will automatically handle capturing to AVI and converting to H.264 MP4 with ffmpeg (scale to 1280px max width, +faststart). The resulting file will be located at `screenshots/presentation/gameplay.mp4`.

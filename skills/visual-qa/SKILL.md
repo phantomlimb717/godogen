@@ -27,17 +27,17 @@ From the arguments — freeform text with file paths:
 
 ## Gemini Execution
 
-Parse the arguments to construct the command. The script is at `${CLAUDE_SKILL_DIR}/scripts/visual_qa.py`.
+Parse the arguments to construct the command. The script is at `.gemini/skills/scripts/visual_qa.py`.
 
 ```bash
 # Static
-python3 ${CLAUDE_SKILL_DIR}/scripts/visual_qa.py --log .vqa.log [--context "Goal: ... Requirements: ... Verify: ..."] reference.png screenshot.png
+python3 .gemini/skills/scripts/visual_qa.py --log .vqa.log [--context "Goal: ... Requirements: ... Verify: ..."] reference.png screenshot.png
 
 # Dynamic
-python3 ${CLAUDE_SKILL_DIR}/scripts/visual_qa.py --log .vqa.log [--context "..."] reference.png frame1.png frame2.png ...
+python3 .gemini/skills/scripts/visual_qa.py --log .vqa.log [--context "..."] reference.png frame1.png frame2.png ...
 
 # Question
-python3 ${CLAUDE_SKILL_DIR}/scripts/visual_qa.py --log .vqa.log --question "the question" screenshot.png [frame2.png ...]
+python3 .gemini/skills/scripts/visual_qa.py --log .vqa.log --question "the question" screenshot.png [frame2.png ...]
 ```
 
 Always pass `--log .vqa.log`. Print the script output as your response.
