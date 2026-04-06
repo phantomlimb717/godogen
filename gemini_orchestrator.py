@@ -8,9 +8,24 @@ the Godogen AI game development pipeline using Google Gemini Pro.
 import os
 import sys
 import argparse
+import datetime
+import difflib
 from pathlib import Path
 from google import genai
 from google.genai import types
+
+ORCHESTRATOR_STATE = {
+    "current_stage": "initialization",
+    "last_plan_content": ""
+}
+
+STAGE_ALLOWED_TOOLS = {
+    ".gemini/skills/godogen/visual-target.md": ["run_asset_gen", "read_file", "write_file", "list_files", "run_bash_command"],
+    ".gemini/skills/godogen/decomposer.md": ["read_file", "write_file", "list_files", "run_bash_command"],
+    ".gemini/skills/godogen/scaffold.md": ["read_file", "write_file", "list_files", "run_bash_command", "lookup_godot_api"],
+    ".gemini/skills/godogen/asset-planner.md": ["run_asset_gen", "run_tripo3d", "read_file", "write_file", "list_files", "run_bash_command", "lookup_godot_api"],
+    ".gemini/skills/godogen/task-execution.md": ["run_asset_gen", "run_tripo3d", "run_visual_qa_analysis", "read_file", "write_file", "list_files", "run_bash_command", "lookup_godot_api"]
+}
 
 def get_gemini_client() -> genai.Client:
     """Initialize and return the Gemini Client."""
@@ -78,6 +93,18 @@ def process_function_calls(function_calls) -> list:
         args = {k: v for k, v in (function_call.args or {}).items() if v is not None}
 
         print(f"-> Agent Executing: {func_name}({args})", file=sys.stderr)
+
+        current_stage = ORCHESTRATOR_STATE["current_stage"]
+        if current_stage in STAGE_ALLOWED_TOOLS and func_name not in STAGE_ALLOWED_TOOLS[current_stage]:
+            allowed_tools = STAGE_ALLOWED_TOOLS[current_stage]
+            result = f"Error: Tool '{func_name}' is not permitted in the current stage '{current_stage}'. Allowed tools: {allowed_tools}. Do not advance the pipeline yourself; complete this stage's criteria so the orchestrator can advance."
+            function_responses.append(
+                types.Part.from_function_response(
+                    name=func_name,
+                    response={"result": result}
+                )
+            )
+            continue
 
         func_to_call = tool_map.get(func_name)
         try:
@@ -228,6 +255,29 @@ def create_orchestrator_session(client: genai.Client) -> genai.chats.Chat:
 
 def transition_to_stage(session: genai.chats.Chat, stage_file: str):
     """Load new stage instructions and send them to the model."""
+    plan_path = Path("PLAN.md")
+    current_plan_content = plan_path.read_text() if plan_path.exists() else ""
+
+    last_plan_content = ORCHESTRATOR_STATE["last_plan_content"]
+
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    diff_lines = list(difflib.unified_diff(
+        last_plan_content.splitlines(),
+        current_plan_content.splitlines(),
+        fromfile="PLAN.md (previous)",
+        tofile="PLAN.md (current)",
+        lineterm=""
+    ))
+
+    diff_output = "\n".join(diff_lines) if diff_lines else "No changes to PLAN.md."
+
+    print(f"[{timestamp}] Stage Transition: {stage_file}", file=sys.stdout)
+    print(f"--- PLAN.md Changes ---\n{diff_output}\n-----------------------", file=sys.stdout)
+
+    ORCHESTRATOR_STATE["current_stage"] = stage_file
+    ORCHESTRATOR_STATE["last_plan_content"] = current_plan_content
+
     print(f"Transitioning to stage: {stage_file}", file=sys.stderr)
     instructions = load_stage_instructions(stage_file)
     message = f"We are now entering a new pipeline stage. Please read these instructions carefully before proceeding:\n\n{instructions}"
