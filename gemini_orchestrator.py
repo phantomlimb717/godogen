@@ -63,7 +63,7 @@ def lookup_godot_api(query: str) -> str:
     client = get_gemini_client()
     instructions = load_stage_instructions("skills/godot-api/SKILL.md")
     response = client.models.generate_content(
-        model="gemini-2.0-pro-exp-02-05",
+        model="gemini-3.1-pro-preview-customtools",
         contents=f"Lookup Godot API query: {query}",
         config=types.GenerateContentConfig(
             system_instruction=instructions,
@@ -151,7 +151,7 @@ def run_visual_qa_analysis(mode: str, reference_path: str = None, game_screensho
 
 def create_orchestrator_session(client: genai.Client) -> genai.chats.Chat:
     """Create the main orchestrator ChatSession."""
-    model_id = "gemini-2.0-pro-exp-02-05" # Advanced reasoning + context window optimized for custom tools/bash agentic workflows
+    model_id = "gemini-3.1-pro-preview-customtools" # Advanced reasoning + context window optimized for custom tools/bash agentic workflows
 
     # Load initial global instructions from SKILL.md
     base_instructions = load_stage_instructions("skills/godogen/SKILL.md")
