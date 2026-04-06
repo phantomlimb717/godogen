@@ -61,7 +61,7 @@ timeout 60 godot --headless --quit 2>&1
 
 **Common errors:**
 - `Parser Error` — syntax error in GDScript, fix the line indicated
-- `Invalid call` / `method not found` — wrong node type or API usage, look up the class via `Skill(skill="godot-api")`
+- `Invalid call` / `method not found` — wrong node type or API usage, look up the class via the `lookup_godot_api` tool
 - `Cannot infer type` — `:=` used with `instantiate()` or polymorphic math functions, see type inference rules
 - Script hangs — missing `quit()` call in scene builder; kill the process and add `quit()`
 
@@ -71,7 +71,7 @@ Read `MEMORY.md` before starting work — it contains discoveries from previous 
 
 ## Visual Debugging
 
-When something looks wrong in screenshots but the cause isn't obvious, use `Skill(skill="visual-qa")` in question mode to get a second pair of eyes. This is especially useful for issues that are hard to detect from code alone.
+When something looks wrong in screenshots but the cause isn't obvious, use the `run_visual_qa_analysis` tool in question mode to get a second pair of eyes. This is especially useful for issues that are hard to detect from code alone.
 
 ### Isolate and Capture
 

@@ -64,25 +64,25 @@ Read `task-execution.md` before starting. Three phases:
 
 ## Godot API Lookup
 
-When you need to look up a Godot class API (methods, properties, signals), use `Skill(skill="godot-api")` with your query. This runs in a separate context to avoid loading large API docs into the main pipeline.
+When you need to look up a Godot class API (methods, properties, signals), use the `lookup_godot_api` tool with your query. This runs in a separate context to avoid loading large API docs into the main pipeline.
 
 Be specific about what you need — the docs are comprehensive and full returns are large:
 - **Targeted query** — ask for specific methods/signals to get a concise answer: `"CharacterBody3D: what method applies velocity and slides along collisions?"`
 - **Full API** — only request when you need to survey the entire class: `"full API for AnimationPlayer"`
 
 Examples:
-- Skill(skill="godot-api") "TileMapLayer: methods for setting/getting cells and their alternatives"
-- Skill(skill="godot-api") "full API for CharacterBody3D"
-- Skill(skill="godot-api") "which class handles 2D particle effects?"
-- Skill(skill="godot-api") "GDScript: tween parallel syntax and callbacks"
+- Call `lookup_godot_api(query="TileMapLayer: methods for setting/getting cells and their alternatives")`
+- Call `lookup_godot_api(query="full API for CharacterBody3D")`
+- Call `lookup_godot_api(query="which class handles 2D particle effects?")`
+- Call `lookup_godot_api(query="GDScript: tween parallel syntax and callbacks")`
 
 ## Visual QA
 
-After capturing screenshots, verify with `Skill(skill="visual-qa")`. Runs in a forked context with Claude's native vision.
+After capturing screenshots, verify using the `run_visual_qa_analysis` tool. Runs in a forked context with vision analysis.
 
-- **Static:** `Skill(skill="visual-qa") "Check reference.png against screenshots/{task}/frame0003.png — Goal: ..., Verify: ..."`
-- **Dynamic:** `Skill(skill="visual-qa") "Check reference.png against frame1.png frame2.png ... — Goal: ..., Verify: ..."`
-- **Question:** `Skill(skill="visual-qa") "Are surfaces showing magenta? screenshots/{task}/frame*.png"`
+- **Static:** Call `run_visual_qa_analysis(mode="static", reference_path="reference.png", game_screenshots=["screenshots/task/frame0003.png"], question="Goal: ..., Verify: ...")`
+- **Dynamic:** Call `run_visual_qa_analysis(mode="dynamic", reference_path="reference.png", game_screenshots=["frame1.png", "frame2.png"], question="Goal: ..., Verify: ...")`
+- **Question:** Call `run_visual_qa_analysis(mode="question", game_screenshots=["screenshots/task/frame0001.png"], question="Are surfaces showing magenta?")`
 
 Save output to `visual-qa/{N}.md`. See `visual-qa.md` for full usage.
 

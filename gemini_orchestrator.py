@@ -33,7 +33,7 @@ import json
 
 def run_asset_gen(command: str, prompt: str, image: str = None, duration: int = None, size: str = "1K", aspect_ratio: str = "1:1", output: str = "assets/output.png") -> str:
     """Run the asset generator (images or videos)."""
-    cmd = ["python", "skills/godogen/tools/asset_gen.py", command, "--prompt", prompt, "-o", output]
+    cmd = ["python", ".gemini/skills/godogen/tools/asset_gen.py", command, "--prompt", prompt, "-o", output]
 
     if image:
         cmd.extend(["--image", image])
@@ -50,27 +50,83 @@ def run_asset_gen(command: str, prompt: str, image: str = None, duration: int = 
 
 def run_tripo3d(image_path: str, output_path: str, quality: str = "default") -> str:
     """Convert an image to a GLB 3D model using Tripo3D."""
-    cmd = ["python", "skills/godogen/tools/asset_gen.py", "glb", "--image", image_path, "-o", output_path, "--quality", quality]
+    # Note: Using tripo3d.py natively or asset_gen.py glb proxy depending on repo setup.
+    # The review implies tripo3d.py should be called directly.
+    cmd = ["python", ".gemini/skills/godogen/tools/tripo3d.py", "glb", "--image", image_path, "-o", output_path, "--quality", quality]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         return f"Success: {result.stdout}"
     except subprocess.CalledProcessError as e:
         return f"Error running tripo3d conversion: {e.stderr}"
 
+def process_function_calls(function_calls) -> list:
+    """Helper method to dynamically map and execute function tools based on model requests."""
+    function_responses = []
+
+    tool_map = {
+        "run_asset_gen": run_asset_gen,
+        "run_tripo3d": run_tripo3d,
+        "run_visual_qa_analysis": run_visual_qa_analysis,
+        "read_file": read_file,
+        "write_file": write_file,
+        "list_files": list_files,
+        "run_bash_command": run_bash_command
+    }
+
+    for function_call in function_calls:
+        func_name = function_call.name
+        args = {k: v for k, v in function_call.args.items()}
+
+        print(f"-> Agent Executing: {func_name}({args})", file=sys.stderr)
+
+        func_to_call = tool_map.get(func_name)
+        try:
+            if func_name == "lookup_godot_api":
+                result = lookup_godot_api(**args)
+            elif func_to_call:
+                result = func_to_call(**args)
+            else:
+                result = f"Error: Tool {func_name} not found."
+        except Exception as e:
+            result = f"Error executing {func_name}: {str(e)}"
+
+        function_responses.append(
+            types.Part.from_function_response(
+                name=func_name,
+                response={"result": result}
+            )
+        )
+    return function_responses
+
 def lookup_godot_api(query: str) -> str:
     """Query the Godot API Documentation."""
     # Spawn a separate Gemini API call (forked context) for lookup
     client = get_gemini_client()
-    instructions = load_stage_instructions("skills/godot-api/SKILL.md")
-    response = client.models.generate_content(
-        model="gemini-3.1-pro-preview-customtools",
-        contents=f"Lookup Godot API query: {query}",
-        config=types.GenerateContentConfig(
-            system_instruction=instructions,
-            temperature=0.0
-        )
+    instructions = load_stage_instructions(".gemini/skills/godot-api/SKILL.md")
+
+    # Sub-agent needs file searching tools to read the documentation
+    tools = [read_file, list_files, run_bash_command]
+
+    config = types.GenerateContentConfig(
+        system_instruction=instructions,
+        temperature=0.0,
+        tools=tools
     )
-    return response.text
+
+    session = client.chats.create(model="gemini-3.1-pro-preview-customtools", config=config)
+    response = session.send_message(f"Lookup Godot API query: {query}")
+
+    # Run the autonomous tool loop for the sub-agent until it delivers the final text answer
+    while True:
+        if response.function_calls:
+            function_responses = process_function_calls(response.function_calls)
+            response = session.send_message(function_responses)
+        else:
+            if response.text:
+                return response.text
+            break
+
+    return "API Lookup Failed to provide a textual answer."
 
 def read_file(filepath: str) -> str:
     """Reads the content of a specific file."""
@@ -132,7 +188,7 @@ def run_bash_command(command: str) -> str:
 
 def run_visual_qa_analysis(mode: str, reference_path: str = None, game_screenshots: list[str] = None, question: str = None) -> str:
     """Run visual QA on screenshots compared to a reference image."""
-    cmd = ["python", "skills/visual-qa/scripts/visual_qa.py"]
+    cmd = ["python", ".gemini/skills/visual-qa/scripts/visual_qa.py"]
     if question:
         cmd.extend(["--question", question])
         if game_screenshots:
@@ -154,7 +210,7 @@ def create_orchestrator_session(client: genai.Client) -> genai.chats.Chat:
     model_id = "gemini-3.1-pro-preview-customtools" # Advanced reasoning + context window optimized for custom tools/bash agentic workflows
 
     # Load initial global instructions from SKILL.md
-    base_instructions = load_stage_instructions("skills/godogen/SKILL.md")
+    base_instructions = load_stage_instructions(".gemini/skills/godogen/SKILL.md")
 
     # Register the tools with Gemini
     tools = [
@@ -179,6 +235,34 @@ def transition_to_stage(session: genai.chats.Chat, stage_file: str):
     response = session.send_message(message)
     print(f"Model response to transition: {response.text}", file=sys.stderr)
 
+def run_autonomous_loop(session: genai.chats.Chat, message: str):
+    """Sends a message to the model and manually streams the tool interaction loop."""
+    print("\n--- Sending Prompt to Gemini ---", file=sys.stderr)
+    print(f"User: {message}\n", file=sys.stderr)
+
+    try:
+        # We must manually handle the tool loop to print tool calls to the console in real-time
+        response = session.send_message(message)
+
+        while True:
+            # Check if the model decided to call any tools
+            if response.function_calls:
+                function_responses = process_function_calls(response.function_calls)
+                # Send the tool output back to the model, which returns the next step
+                response = session.send_message(function_responses)
+            else:
+                # No tool calls made, the agent is responding with final text.
+                if response.text:
+                    print(f"Gemini: {response.text}\n", file=sys.stderr)
+                break
+
+    except KeyboardInterrupt:
+        print("\n[!] Execution paused by user (KeyboardInterrupt). Exiting loop cleanly.", file=sys.stderr)
+        raise
+    except Exception as e:
+        print(f"\n[!] Unexpected error in autonomous loop: {e}", file=sys.stderr)
+        raise
+
 def main():
     parser = argparse.ArgumentParser(description="Gemini CLI Orchestrator for Godogen")
     parser.add_argument("--prompt", type=str, help="The natural language description of the game to build")
@@ -189,9 +273,33 @@ def main():
 
     print("Gemini Orchestrator initialized successfully.", file=sys.stderr)
 
+    # Define the core Godogen pipeline stages
+    pipeline_stages = [
+        {"file": ".gemini/skills/godogen/visual-target.md", "artifact": "reference.png"},
+        {"file": ".gemini/skills/godogen/decomposer.md", "artifact": "PLAN.md"},
+        {"file": ".gemini/skills/godogen/scaffold.md", "artifact": "STRUCTURE.md"},
+        {"file": ".gemini/skills/godogen/asset-planner.md", "artifact": "ASSETS.md"},
+        {"file": ".gemini/skills/godogen/task-execution.md", "artifact": None} # Task execution runs until completion
+    ]
+
     if args.prompt:
-        print(f"Received prompt: {args.prompt}", file=sys.stderr)
-        # TODO: Send initial prompt to session and begin pipeline
+        # Initial kick-off
+        run_autonomous_loop(session, f"New Game Request: {args.prompt}\n\nPlease begin the pipeline.")
+
+    # Execute Pipeline State Machine with resumability
+    for stage in pipeline_stages:
+        artifact = stage["artifact"]
+
+        # Resumability check: if artifact exists, skip to next stage
+        if artifact and Path(artifact).exists():
+            print(f"Found {artifact}. Skipping {stage['file']} stage.", file=sys.stderr)
+            continue
+
+        # Enter the stage
+        transition_to_stage(session, stage["file"])
+
+        # Prompt the model to execute the current stage
+        run_autonomous_loop(session, f"Please execute the current stage based on the instructions just provided. Let me know when you are finished.")
 
 if __name__ == "__main__":
     main()
