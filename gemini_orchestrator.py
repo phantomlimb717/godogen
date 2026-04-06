@@ -12,6 +12,13 @@ from pathlib import Path
 from google import genai
 from google.genai import types
 
+MODEL_CONFIG = {
+    "main": "gemini-3.1-pro-preview-customtools",
+    "visual_qa": "gemini-2.5-flash",
+    "godot_api_lookup": "gemini-2.5-flash",
+    "decomposer": "gemini-2.5-flash"
+}
+
 def get_gemini_client() -> genai.Client:
     """Initialize and return the Gemini Client."""
     api_key = os.environ.get("GOOGLE_API_KEY")
@@ -98,7 +105,7 @@ def process_function_calls(function_calls) -> list:
         )
     return function_responses
 
-def lookup_godot_api(query: str) -> str:
+def lookup_godot_api(query: str, model_name: str = MODEL_CONFIG["godot_api_lookup"]) -> str:
     """Query the Godot API Documentation."""
     # Spawn a separate Gemini API call (forked context) for lookup
     client = get_gemini_client()
@@ -113,7 +120,7 @@ def lookup_godot_api(query: str) -> str:
         tools=tools
     )
 
-    session = client.chats.create(model="gemini-3.1-pro-preview-customtools", config=config)
+    session = client.chats.create(model=model_name, config=config)
     response = session.send_message(f"Lookup Godot API query: {query}")
 
     # Run the autonomous tool loop for the sub-agent until it delivers the final text answer
@@ -186,7 +193,7 @@ def run_bash_command(command: str) -> str:
     except Exception as e:
         return f"Error executing command: {str(e)}"
 
-def run_visual_qa_analysis(mode: str, reference_path: str = None, game_screenshots: list[str] = None, question: str = None) -> str:
+def run_visual_qa_analysis(mode: str, reference_path: str = None, game_screenshots: list[str] = None, question: str = None, model_name: str = MODEL_CONFIG["visual_qa"]) -> str:
     """Run visual QA on screenshots compared to a reference image."""
     cmd = ["python", ".gemini/skills/visual-qa/scripts/visual_qa.py"]
     if question:
@@ -199,16 +206,16 @@ def run_visual_qa_analysis(mode: str, reference_path: str = None, game_screensho
         if game_screenshots:
             cmd.extend(game_screenshots)
 
+    cmd.extend(["--model", model_name])
+
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         return f"Visual QA Output:\n{result.stdout}"
     except subprocess.CalledProcessError as e:
         return f"Visual QA Error:\n{e.stderr}"
 
-def create_orchestrator_session(client: genai.Client) -> genai.chats.Chat:
+def create_orchestrator_session(client: genai.Client, model_id: str = MODEL_CONFIG["main"]) -> genai.chats.Chat:
     """Create the main orchestrator ChatSession."""
-    model_id = "gemini-3.1-pro-preview-customtools" # Advanced reasoning + context window optimized for custom tools/bash agentic workflows
-
     # Load initial global instructions from SKILL.md
     base_instructions = load_stage_instructions(".gemini/skills/godogen/SKILL.md")
 
@@ -276,7 +283,7 @@ def main():
     # Define the core Godogen pipeline stages
     pipeline_stages = [
         {"file": ".gemini/skills/godogen/visual-target.md", "artifact": "reference.png"},
-        {"file": ".gemini/skills/godogen/decomposer.md", "artifact": "PLAN.md"},
+        {"file": ".gemini/skills/godogen/decomposer.md", "artifact": "PLAN.md", "fork_model": MODEL_CONFIG["decomposer"]},
         {"file": ".gemini/skills/godogen/scaffold.md", "artifact": "STRUCTURE.md"},
         {"file": ".gemini/skills/godogen/asset-planner.md", "artifact": "ASSETS.md"},
         {"file": ".gemini/skills/godogen/task-execution.md", "artifact": None} # Task execution runs until completion
@@ -289,17 +296,20 @@ def main():
     # Execute Pipeline State Machine with resumability
     for stage in pipeline_stages:
         artifact = stage["artifact"]
+        fork_model = stage.get("fork_model")
 
         # Resumability check: if artifact exists, skip to next stage
         if artifact and Path(artifact).exists():
             print(f"Found {artifact}. Skipping {stage['file']} stage.", file=sys.stderr)
             continue
 
+        stage_session = create_orchestrator_session(client, model_id=fork_model) if fork_model else session
+
         # Enter the stage
-        transition_to_stage(session, stage["file"])
+        transition_to_stage(stage_session, stage["file"])
 
         # Prompt the model to execute the current stage
-        run_autonomous_loop(session, f"Please execute the current stage based on the instructions just provided. Let me know when you are finished.")
+        run_autonomous_loop(stage_session, f"Please execute the current stage based on the instructions just provided. Let me know when you are finished.")
 
 if __name__ == "__main__":
     main()
