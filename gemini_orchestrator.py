@@ -84,7 +84,7 @@ def run_tripo3d(image_path: str, output_path: str, quality: str = "default") -> 
     except subprocess.CalledProcessError as e:
         return f"Error running tripo3d conversion: {e.stderr}"
 
-def process_function_calls(function_calls) -> list:
+def process_function_calls(function_calls, enforce_stage_gates: bool = True) -> list:
     """Helper method to dynamically map and execute function tools based on model requests."""
     function_responses = []
 
@@ -104,17 +104,18 @@ def process_function_calls(function_calls) -> list:
 
         print(f"-> Agent Executing: {func_name}({args})", file=sys.stderr)
 
-        current_stage = ORCHESTRATOR_STATE["current_stage"]
-        if current_stage in STAGE_ALLOWED_TOOLS and func_name not in STAGE_ALLOWED_TOOLS[current_stage]:
-            allowed_tools = STAGE_ALLOWED_TOOLS[current_stage]
-            result = f"Error: Tool '{func_name}' is not permitted in the current stage '{current_stage}'. Allowed tools: {allowed_tools}. Do not advance the pipeline yourself; complete this stage's criteria so the orchestrator can advance."
-            function_responses.append(
-                types.Part.from_function_response(
-                    name=func_name,
-                    response={"result": result}
+        if enforce_stage_gates:
+            current_stage = ORCHESTRATOR_STATE["current_stage"]
+            if current_stage in STAGE_ALLOWED_TOOLS and func_name not in STAGE_ALLOWED_TOOLS[current_stage]:
+                allowed_tools = STAGE_ALLOWED_TOOLS[current_stage]
+                result = f"Error: Tool '{func_name}' is not permitted in the current stage '{current_stage}'. Allowed tools: {allowed_tools}. Do not advance the pipeline yourself; complete this stage's criteria so the orchestrator can advance."
+                function_responses.append(
+                    types.Part.from_function_response(
+                        name=func_name,
+                        response={"result": result}
+                    )
                 )
-            )
-            continue
+                continue
 
         func_to_call = tool_map.get(func_name)
         try:
@@ -156,7 +157,7 @@ def lookup_godot_api(query: str) -> str:
     # Run the autonomous tool loop for the sub-agent until it delivers the final text answer
     while True:
         if response.function_calls:
-            function_responses = process_function_calls(response.function_calls)
+            function_responses = process_function_calls(response.function_calls, enforce_stage_gates=False)
             response = session.send_message(function_responses)
         else:
             if response.text:
