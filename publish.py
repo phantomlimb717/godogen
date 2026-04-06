@@ -45,6 +45,9 @@ def main():
     shutil.copy2(os.path.join(repo_root, "game.md"), os.path.join(target, "CLAUDE.md"))
     print("Created CLAUDE.md")
 
+    shutil.copy2(os.path.join(repo_root, "gemini_orchestrator.py"), os.path.join(target, "gemini_orchestrator.py"))
+    print("Copied gemini_orchestrator.py")
+
     gitignore_path = os.path.join(target, ".gitignore")
     if not os.path.exists(gitignore_path):
         with open(gitignore_path, "w") as f:
