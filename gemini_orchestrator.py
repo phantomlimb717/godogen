@@ -72,6 +72,59 @@ def lookup_godot_api(query: str) -> str:
     )
     return response.text
 
+def read_file(filepath: str) -> str:
+    """Reads the content of a specific file."""
+    try:
+        path = Path(filepath)
+        if not path.exists():
+            return f"Error: File {filepath} not found."
+        return path.read_text()
+    except Exception as e:
+        return f"Error reading file: {str(e)}"
+
+def write_file(filepath: str, content: str) -> str:
+    """Writes or overwrites a file with the given content."""
+    try:
+        path = Path(filepath)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+        return f"Successfully wrote to {filepath}"
+    except Exception as e:
+        return f"Error writing file: {str(e)}"
+
+def list_files(directory: str = ".") -> str:
+    """Lists all files and directories under the given directory."""
+    try:
+        result = []
+        for root, dirs, files in os.walk(directory):
+            # Skip hidden directories like .git and .gemini
+            dirs[:] = [d for d in dirs if not d.startswith('.')]
+            level = root.replace(directory, '').count(os.sep)
+            indent = ' ' * 4 * (level)
+            result.append(f"{indent}{os.path.basename(root)}/")
+            subindent = ' ' * 4 * (level + 1)
+            for f in files:
+                result.append(f"{subindent}{f}")
+        return "\n".join(result)
+    except Exception as e:
+        return f"Error listing files: {str(e)}"
+
+def run_bash_command(command: str) -> str:
+    """Runs a given bash command in the terminal."""
+    try:
+        # Use shell=True to allow complex commands (e.g. piping, logical operators)
+        result = subprocess.run(command, capture_output=True, text=True, shell=True)
+
+        output = f"Exit code: {result.returncode}\n"
+        if result.stdout:
+            output += f"STDOUT:\n{result.stdout}\n"
+        if result.stderr:
+            output += f"STDERR:\n{result.stderr}\n"
+
+        return output
+    except Exception as e:
+        return f"Error executing command: {str(e)}"
+
 def run_visual_qa_analysis(mode: str, reference_path: str = None, game_screenshots: list[str] = None, question: str = None) -> str:
     """Run visual QA on screenshots compared to a reference image."""
     cmd = ["python", "skills/visual-qa/scripts/visual_qa.py"]
@@ -99,7 +152,10 @@ def create_orchestrator_session(client: genai.Client) -> genai.chats.Chat:
     base_instructions = load_stage_instructions("skills/godogen/SKILL.md")
 
     # Register the tools with Gemini
-    tools = [run_asset_gen, run_tripo3d, lookup_godot_api, run_visual_qa_analysis]
+    tools = [
+        run_asset_gen, run_tripo3d, lookup_godot_api, run_visual_qa_analysis,
+        read_file, write_file, list_files, run_bash_command
+    ]
 
     config = types.GenerateContentConfig(
         system_instruction=base_instructions,
