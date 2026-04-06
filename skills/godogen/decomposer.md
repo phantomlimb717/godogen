@@ -16,24 +16,28 @@ Analyze a game for implementation risks and define verification criteria. Output
 
 Features that fail unpredictably and produce ambiguous errors when mixed with other systems:
 
+- **Collision-based game mechanics** — hazard death, pickup collection, trigger zones. These are *always* risk tasks because CollisionShape2D sizing, layer/mask mismatches, and Area2D versus StaticBody2D confusion are among the most common silent failures in Godot 2D.
+- **State transitions** — score changes, scene resets, game over. Observable by the player, these are *always* risk tasks because they're the verification anchor for whether the mechanic actually fires.
+- **Sprite/character animations** — multi-direction movement, state transitions. Almost always fail first pass: wrong frames for direction, transitions stutter or pop.
 - **Procedural generation** — terrain, levels, meshes, dungeon layouts
 - **Procedural animation** — runtime bone manipulation, IK, ragdoll blending. Motions jerk, blend weights fight, limbs overshoot.
-- **Sprite/character animations** — multi-direction movement, state transitions. Almost always fail first pass: wrong frames for direction, transitions stutter or pop.
 - **Complex vehicle physics** — wheel colliders, suspension, drifting, motorcycle balance
 - **Custom shaders** — water surfaces, portals, screen-space effects, dissolve/distortion
 - **Runtime geometry** — destructible environments, CSG operations, mesh deformation
 - **Dynamic navigation** — pathfinding adapting to runtime obstacles, crowd simulation, flocking
 - **Complex camera systems** — third-person with collision avoidance, cinematic rail transitions, split-screen
 
+*Important Rule:* The decomposer MUST output **two to four** risk tasks for a typical game prompt. Each promoted risk task must have its own isolated test harness (a SceneTree script that programmatically exercises the mechanic, not a play-through) and its own VQA verification.
+
 ### Never isolate
 
-Patterns Godot handles well: CharacterBody movement, collision/triggers, TileMap/GridMap, NavigationAgent on static navmesh, UI with Control nodes, spawning/timers/waves, camera follow, state machines, input handling.
+Patterns Godot handles well: CharacterBody movement, TileMap/GridMap, NavigationAgent on static navmesh, UI with Control nodes, spawning/timers/waves, camera follow, input handling.
 
 ## Verification Criteria
 
 Each task gets a **Verify** field inline — what to check after implementation.
 
-**Risk tasks** — target the exact failure mode (e.g., for animations: "every direction plays correct frames, transitions smooth, no pose snapping").
+**Risk tasks** — target the exact failure mode (e.g., for animations: "every direction plays correct frames, transitions smooth, no pose snapping"). Each risk task must have a dedicated verification section outlining its SceneTree script harness and VQA verification.
 
 **Main build** — combine cross-cutting checks with game-specific ones:
 - Movement direction matches player input
