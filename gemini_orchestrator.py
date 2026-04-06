@@ -63,7 +63,7 @@ def lookup_godot_api(query: str) -> str:
     client = get_gemini_client()
     instructions = load_stage_instructions("skills/godot-api/SKILL.md")
     response = client.models.generate_content(
-        model="gemini-2.5-pro",
+        model="gemini-2.0-pro-exp-02-05",
         contents=f"Lookup Godot API query: {query}",
         config=types.GenerateContentConfig(
             system_instruction=instructions,
@@ -99,7 +99,12 @@ def list_files(directory: str = ".") -> str:
         for root, dirs, files in os.walk(directory):
             # Skip hidden directories like .git and .gemini
             dirs[:] = [d for d in dirs if not d.startswith('.')]
-            level = root.replace(directory, '').count(os.sep)
+            try:
+                rel_parts = Path(root).relative_to(directory).parts
+                level = len(rel_parts)
+            except ValueError:
+                level = 0
+
             indent = ' ' * 4 * (level)
             result.append(f"{indent}{os.path.basename(root)}/")
             subindent = ' ' * 4 * (level + 1)
@@ -146,7 +151,7 @@ def run_visual_qa_analysis(mode: str, reference_path: str = None, game_screensho
 
 def create_orchestrator_session(client: genai.Client) -> genai.chats.Chat:
     """Create the main orchestrator ChatSession."""
-    model_id = "gemini-2.5-pro" # Defaulting to Pro for 1M context
+    model_id = "gemini-2.0-pro-exp-02-05" # Advanced reasoning + context window optimized for custom tools/bash agentic workflows
 
     # Load initial global instructions from SKILL.md
     base_instructions = load_stage_instructions("skills/godogen/SKILL.md")
