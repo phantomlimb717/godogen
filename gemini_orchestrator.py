@@ -75,7 +75,7 @@ def process_function_calls(function_calls) -> list:
 
     for function_call in function_calls:
         func_name = function_call.name
-        args = {k: v for k, v in function_call.args.items()}
+        args = {k: v for k, v in (function_call.args or {}).items()}
 
         print(f"-> Agent Executing: {func_name}({args})", file=sys.stderr)
 

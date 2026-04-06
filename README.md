@@ -46,7 +46,48 @@ The project is built specifically for **native Windows 11 support**. All pipelin
 3. Set your API keys as environment variables (`GOOGLE_API_KEY`, `XAI_API_KEY`, `TRIPO3D_API_KEY`).
 4. You are ready to go. No emulation required.
 
-### Create a game project
+### Beginner's Guide: Running on Windows
+
+If you are new to the command line, follow these exact steps to build your first game on Windows 11.
+
+1. **Open PowerShell as Administrator**
+   Click the Start menu, type `powershell`, right-click it, and select **"Run as Administrator"**.
+2. **Install the required software**
+   Copy and paste this block into your PowerShell window, then press Enter:
+   ```powershell
+   winget install ffmpeg
+   winget install ImageMagick.ImageMagick
+   winget install GodotEngine.Godot
+   ```
+3. **Set your API Keys**
+   You need a free [Google AI Studio key](https://aistudio.google.com/) for Gemini, an [xAI Grok key](https://console.x.ai/home) for textures, and a [Tripo3D key](https://platform.tripo3d.ai/) for 3D models.
+   In PowerShell, set them like this (replace the text inside the quotes with your actual keys):
+   ```powershell
+   $env:GOOGLE_API_KEY="your-google-api-key"
+   $env:XAI_API_KEY="your-xai-api-key"
+   $env:TRIPO3D_API_KEY="your-tripo3d-api-key"
+   ```
+4. **Download this repository and install Python dependencies**
+   ```powershell
+   git clone https://github.com/your-username/godogen.git
+   cd godogen
+   pip install -r skills/godogen/tools/requirements.txt
+   ```
+5. **Create your game folder**
+   We need to publish the AI orchestrator into a new folder on your Desktop where your game will live:
+   ```powershell
+   python publish.py $HOME\Desktop\MyFirstGame
+   ```
+6. **Start the AI Orchestrator**
+   Navigate to your new game folder and tell the Gemini AI what to build:
+   ```powershell
+   cd $HOME\Desktop\MyFirstGame
+   python gemini_orchestrator.py --prompt "A 2D platformer game where a frog collects coins and avoids spikes"
+   ```
+7. **Watch it build!**
+   The terminal will begin scrolling rapidly as Gemini writes code, creates `.tscn` Godot scenes, and generates assets. You will see outputs like `-> Agent Executing: write_file`. Let it run until it says it is finished. You can open the generated `project.godot` file in the Godot engine at any time to play your game.
+
+### Create a game project (Advanced)
 
 This repo is the skill development source. To start making a game, run `publish.py` to compile the orchestrator and all the agentic instructions into a fresh project folder:
 
