@@ -82,7 +82,7 @@ After capturing screenshots, verify using the `run_visual_qa_analysis` tool. Run
 
 - **Static:** Call `run_visual_qa_analysis(mode="static", reference_path="reference.png", game_screenshots=["screenshots/task/frame0003.png"], question="Goal: ..., Verify: ...")`
 - **Dynamic:** Call `run_visual_qa_analysis(mode="dynamic", reference_path="reference.png", game_screenshots=["frame1.png", "frame2.png"], question="Goal: ..., Verify: ...")`
-- **Question:** Call `run_visual_qa_analysis(mode="question", game_screenshots=["screenshots/task/frame0001.png"], question="Are surfaces showing magenta?")`
+- **Question:** Call `run_visual_qa_analysis(mode="question", game_screenshots=["screenshots/task/frame0001.png"], question="Describe exactly what you see in each frame, specifically noting position, size, rotation, visible details of any character sprites, and any differences between frames.")`
 
 Save output to `visual-qa/{N}.md`. See `visual-qa.md` for full usage.
 

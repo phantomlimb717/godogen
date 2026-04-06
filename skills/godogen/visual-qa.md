@@ -31,28 +31,40 @@ run_visual_qa_analysis(
 )
 ```
 
-## Question Mode
+## Question Mode (Two-Step Descriptive Pattern)
 
-For debugging and investigation — ask any question about screenshots without needing a reference image.
+For debugging and investigation, never ask leading questions (e.g., yes/no questions, hypotheses baked in). Instead, use a two-step descriptive pattern:
+
+1. **Step One (VQA Observation):** Ask the VQA model to describe exactly what it sees in each frame neutrally (position, size, rotation, visible details, frame-to-frame differences).
+2. **Step Two (Python Judgment):** Compare the VQA descriptions deterministically against expected behavior from PLAN.md in Python to decide pass/fail.
+
+### Bad Pattern (Before)
+Leading questions prime the model and incentivize hallucination.
 
 ```python
 run_visual_qa_analysis(
     mode="question",
-    game_screenshots=["screenshots/{task}/frame0005.png"],
-    question="Are any surfaces showing magenta or default grey material?"
+    game_screenshots=["screenshots/{task}/frame0001.png", "screenshots/{task}/frame0010.png"],
+    question="Does the green square (player) change its scale or rotation across these frames, indicating idle, run, and jump animations?"
+)
+```
+
+### Good Pattern (After)
+Neutral description followed by orchestrator logic.
+
+```python
+# Step 1: VQA describes exactly what it sees without bias
+vqa_result = run_visual_qa_analysis(
+    mode="question",
+    game_screenshots=["screenshots/{task}/frame0001.png", "screenshots/{task}/frame0010.png"],
+    question="Describe exactly what you see in each frame, specifically noting position, size, rotation, visible details of any character sprites, and any differences between frames."
 )
 
-run_visual_qa_analysis(
-    mode="question",
-    game_screenshots=["screenshots/{task}/frame0001.png", "screenshots/{task}/frame0010.png", "screenshots/{task}/frame0020.png"],
-    question="Does the enemy patrol path form a loop?"
-)
-
-run_visual_qa_analysis(
-    mode="question",
-    game_screenshots=["screenshots/{task}/frame0001.png", "screenshots/{task}/frame0005.png"],
-    question="The door should open when player approaches. Does it? InteractionSystem triggers at 2m, door uses AnimationPlayer."
-)
+# Step 2: Orchestrator decides pass/fail deterministically in Python
+if "different frame" in vqa_result.lower() or "different sprite" in vqa_result.lower():
+    verdict = "pass"
+else:
+    verdict = "fail"
 ```
 
 ## Context

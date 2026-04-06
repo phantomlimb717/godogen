@@ -86,14 +86,14 @@ Don't debug in a complex scene — isolate the problem:
 Animations are the #1 source of silent failures — they "work" (no errors) but produce wrong results. The current pipeline is bad at detecting these because validation only checks for parse errors.
 
 Common animation issues to probe:
-- **Frozen pose** — capture 3-5s at 10 FPS, feed all frames: "Does the character's pose change between frames, or is it the same pose throughout?"
-- **Wrong animation** — same multi-frame capture: "Describe how the character's limbs and body move across frames. Does it look like walking, idling, attacking, or something else?"
-- **Animation not blending** — same: "Are there any sudden pose jumps between consecutive frames, or do poses transition smoothly?"
+- **Frozen pose** — capture 3-5s at 10 FPS, feed all frames. Ask VQA to describe the character's pose in each frame, then check in Python if the poses are identical.
+- **Wrong animation** — same multi-frame capture. Ask VQA to describe the movement of the character's limbs and body across frames, then evaluate in Python if the described movement matches the expected animation (e.g., walking vs attacking).
+- **Animation not blending** — same. Ask VQA to describe differences between consecutive frames, then check in Python if there are large jumps in pose instead of smooth transitions.
 - **AnimationPlayer vs AnimationTree conflicts** — both trying to control the same skeleton
 - **Animation on wrong node** — player set up correctly but targeting a different skeleton path
 - **Bone/track mismatches** — animation was made for a different model, tracks don't map
 
-When you suspect animation failure, always capture dynamic (multi-frame) and ask specifically about motion between frames.
+When you suspect animation failure, always capture dynamic (multi-frame) and use the two-step descriptive pattern: ask for a neutral description of motion between frames, then evaluate the description in Python.
 
 ### 3D Object Not Visible
 
@@ -108,10 +108,10 @@ When a 3D object should be on-screen but isn't, run this checklist in order — 
 
 ### Other Debug Scenarios
 
-- **"Is this node even visible?"** — capture and ask. Nodes can be hidden by z-order, wrong layer, zero alpha, off-camera, or wrong viewport.
-- **Physics not working** — capture a sequence and ask "Do any objects move due to gravity or collision?". RigidBodies silently do nothing if collision shapes are missing.
-- **UI layout broken** — capture and ask "Are any UI elements overlapping, cut off, or positioned outside the visible area?"
-- **Shader/material issues** — ask "Are any surfaces showing magenta, checkerboard, or default grey material?"
+- **"Is this node even visible?"** — capture and ask VQA to describe all visible objects. Use Python to check if the target node is in the description. Nodes can be hidden by z-order, wrong layer, zero alpha, off-camera, or wrong viewport.
+- **Physics not working** — capture a sequence and ask VQA to describe the position of objects in each frame. Use Python to evaluate if position changes indicate gravity or collision. RigidBodies silently do nothing if collision shapes are missing.
+- **UI layout broken** — capture and ask VQA to describe the UI layout. Use Python to check the description for mentions of overlapping, cut off, or out-of-bounds elements.
+- **Shader/material issues** — ask VQA to describe the colors and materials of surfaces. Use Python to check the description for magenta, checkerboard, or default grey colors.
 
 ### Special Debug Scene Pattern
 
