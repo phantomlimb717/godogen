@@ -14,7 +14,7 @@ The system is fully decoupled and autonomous. We use a custom standalone **Gemin
 - **Autonomous Tool Integration** — The AI is granted low-level Python tools (file IO, shell execution) allowing it to independently manipulate `.tscn` and `.gd` files and run Godot headless commands to build your game.
 - **Forked Sub-Agents** — When looking up massive Godot API documentations or checking screenshots via Visual QA, the orchestrator spawns isolated Gemini sub-agents with dedicated tools to avoid blowing out the main 1M-token context window.
 - **Godot 4 output** — real projects with proper scene trees, scripts, and asset organization.
-- **Asset generation** — Gemini creates precise references and characters; xAI Grok handles textures and simple objects; Tripo3D converts images to 3D models. Animated sprites use Grok video generation with loop detection.
+- **Asset generation** — Imagen 4 handles image generation (references, characters, textures, backgrounds); Veo 3.1 Lite handles video generation for animated sprites; Tripo3D converts images to 3D models. Animated sprites use video generation with loop detection.
 - **Visual QA closes the loop** — captures actual screenshots from the running game and analyzes them with Gemini. Includes question mode for free-form visual debugging. Catches z-fighting, missing textures, broken physics.
 
 ## Getting started
@@ -25,8 +25,7 @@ The system is fully decoupled and autonomous. We use a custom standalone **Gemin
 - Python 3.10+ with `pip`
 - System packages: `ffmpeg` and `ImageMagick`
 - API keys as environment variables:
-  - `GOOGLE_API_KEY` — [Google AI Studio](https://aistudio.google.com/), used for Gemini orchestration, text models, and image generation.
-  - `XAI_API_KEY` — [xAI Grok](https://console.x.ai/home), used for image/video generation (textures, simple objects)
+  - `GOOGLE_API_KEY` — [Google AI Studio](https://aistudio.google.com/), used for Gemini orchestration, text models, and asset generation (Imagen 4, Veo 3.1 Lite).
   - `TRIPO3D_API_KEY` — [Tripo3D](https://platform.tripo3d.ai/), used for image-to-3D model conversion (only needed for 3D games)
 
 The project is built specifically for **native Windows 11 support**. All pipeline tools utilize cross-platform Python scripts (`gemini_orchestrator.py`, `publish.py`, `asset_gen.py`) so you do **not** need WSL2, Git Bash, or MSYS2.
@@ -60,11 +59,10 @@ If you are new to the command line, follow these exact steps to build your first
    winget install GodotEngine.Godot
    ```
 3. **Set your API Keys**
-   You need a free [Google AI Studio key](https://aistudio.google.com/) for Gemini, an [xAI Grok key](https://console.x.ai/home) for textures, and a [Tripo3D key](https://platform.tripo3d.ai/) for 3D models.
+   You need a free [Google AI Studio key](https://aistudio.google.com/) for Gemini and asset generation, and a [Tripo3D key](https://platform.tripo3d.ai/) for 3D models.
    In PowerShell, set them like this (replace the text inside the quotes with your actual keys):
    ```powershell
    $env:GOOGLE_API_KEY="your-google-api-key"
-   $env:XAI_API_KEY="your-xai-api-key"
    $env:TRIPO3D_API_KEY="your-tripo3d-api-key"
    ```
 4. **Download this repository and install Python dependencies**
