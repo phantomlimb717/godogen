@@ -22,7 +22,7 @@ def main():
 
     print(f"Publishing to: {target}")
 
-    skills_target = os.path.join(target, ".claude", "skills")
+    skills_target = os.path.join(target, ".gemini", "skills")
     os.makedirs(skills_target, exist_ok=True)
 
     skills_source = os.path.join(repo_root, "skills")
@@ -42,8 +42,8 @@ def main():
         else:
             shutil.copy2(s, d)
 
-    shutil.copy2(os.path.join(repo_root, "game.md"), os.path.join(target, "CLAUDE.md"))
-    print("Created CLAUDE.md")
+    shutil.copy2(os.path.join(repo_root, "game.md"), os.path.join(target, "GEMINI.md"))
+    print("Created GEMINI.md")
 
     shutil.copy2(os.path.join(repo_root, "gemini_orchestrator.py"), os.path.join(target, "gemini_orchestrator.py"))
     print("Copied gemini_orchestrator.py")
@@ -51,7 +51,7 @@ def main():
     gitignore_path = os.path.join(target, ".gitignore")
     if not os.path.exists(gitignore_path):
         with open(gitignore_path, "w") as f:
-            f.write(".claude\nCLAUDE.md\nassets\nscreenshots\n.vqa.log\n.godot\n*.import\n")
+            f.write(".gemini\nGEMINI.md\nassets\nscreenshots\n.vqa.log\n.godot\n*.import\n")
         print("Created .gitignore")
 
     try:
