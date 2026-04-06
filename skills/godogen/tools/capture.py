@@ -69,12 +69,64 @@ def main():
     if display:
         env['DISPLAY'] = display
 
+    output_buffer = []
+
     try:
-        subprocess.run(godot_cmd, env=env, timeout=timeout, check=True)
-    except subprocess.TimeoutExpired:
+        # Run Godot, capturing stdout and stderr into a single pipe
+        # We use capture_output=True and timeout properly enforced by subprocess.run
+        res = subprocess.run(
+            godot_cmd,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=timeout,
+            check=False
+        )
+
+        # Tee the output
+        if res.stdout:
+            sys.stdout.write(res.stdout)
+            output_buffer = res.stdout.splitlines()
+
+    except subprocess.TimeoutExpired as e:
         print("Godot run timed out (expected if it doesn't quit cleanly)")
-    except subprocess.CalledProcessError as e:
-        print(f"Godot exited with code {e.returncode}")
+        if e.stdout:
+            sys.stdout.write(e.stdout)
+            if isinstance(e.stdout, str):
+                output_buffer = e.stdout.splitlines()
+            else:
+                output_buffer = e.stdout.decode('utf-8', errors='replace').splitlines()
+    except Exception as e:
+        print(f"Failed to run Godot: {e}")
+
+    error_prefixes = ["ERROR:", "SCRIPT ERROR:", "Parse Error:"]
+    found_errors = []
+
+    # Scan the buffer for errors
+    if output_buffer:
+        for i, line in enumerate(output_buffer):
+            line_stripped = line.strip()
+            if any(line_stripped.startswith(prefix) for prefix in error_prefixes):
+                # Grab this line and the next few lines to get context (like "at: ...")
+                error_context = [line_stripped]
+
+                # Check up to 2 subsequent lines for "at:" context
+                for j in range(1, 3):
+                    if i + j < len(output_buffer):
+                        next_line = output_buffer[i + j].strip()
+                        if next_line.startswith("at:") or next_line.startswith("ERROR: Failed to load script"):
+                            error_context.append(next_line)
+                        else:
+                            break
+
+                found_errors.append("\n".join(error_context))
+
+    if found_errors:
+        print("\n--- CAPTURE FAILED: GODOT ERRORS DETECTED ---", file=sys.stderr)
+        for err in found_errors:
+            print(f"{err}", file=sys.stderr)
+        sys.exit(1)
 
     if args.video:
         mp4_path = f"{out_dir}/gameplay.mp4"
