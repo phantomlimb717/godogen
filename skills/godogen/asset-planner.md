@@ -12,7 +12,7 @@ The game description is in `PLAN.md` under **Game Description**.
 
 ## Setup
 
-Read `${CLAUDE_SKILL_DIR}/asset-gen.md` for CLI reference and prompt templates.
+Read `.gemini/skills/asset-gen.md` for CLI reference and prompt templates.
 
 ## Workflow
 

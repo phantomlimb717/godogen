@@ -145,8 +145,8 @@ Architecture graph plus asset hints for the asset planner. No descriptions, no r
 
 Assets, tools, and build artifacts stay out of git:
 ```
-.claude
-CLAUDE.md
+.gemini
+GEMINI.md
 assets
 screenshots
 .godot

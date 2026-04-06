@@ -10,7 +10,7 @@ Generate and update Godot games from natural language.
 
 ## Capabilities
 
-Read each sub-file from `${CLAUDE_SKILL_DIR}/` when you reach its pipeline stage.
+Read each sub-file from `.gemini/skills/` when you reach its pipeline stage.
 
 | File | Purpose | When to read |
 |------|---------|--------------|
