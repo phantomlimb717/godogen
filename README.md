@@ -42,7 +42,7 @@ The project is built specifically for **native Windows 11 support**. All pipelin
    ```powershell
    pip install -r skills/godogen/tools/requirements.txt
    ```
-3. Set your API keys as environment variables (`GOOGLE_API_KEY`, `XAI_API_KEY`, `TRIPO3D_API_KEY`).
+3. Set your API keys as environment variables (`GOOGLE_API_KEY`, `TRIPO3D_API_KEY`).
 4. You are ready to go. No emulation required.
 
 ### Beginner's Guide: Running on Windows
