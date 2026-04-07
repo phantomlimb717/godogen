@@ -48,6 +48,45 @@ def main():
     shutil.copy2(os.path.join(repo_root, "gemini_orchestrator.py"), os.path.join(target, "gemini_orchestrator.py"))
     print("Copied gemini_orchestrator.py")
 
+    packs_dir = os.path.join(target, "assets", "packs")
+    os.makedirs(packs_dir, exist_ok=True)
+    with open(os.path.join(packs_dir, ".gitkeep"), "w") as f:
+        pass
+
+    readme_content = """# Asset Packs
+
+Place pre-made GLB asset packs in this directory to have godogen use them
+instead of generating 3D assets via Tripo3D. Each pack should live in its own
+subdirectory, e.g.:
+
+```
+assets/packs/quaternius_fantasy/
+  Barrel.glb
+  Chest.glb
+  Table.glb
+  ...
+assets/packs/kenney_medieval/
+  Sword.glb
+  Shield.glb
+  ...
+```
+
+Godogen will detect packs automatically at the start of asset planning. Assets
+that exactly match a pack file will be used directly. Assets without an exact
+match may be substituted from semantic neighbors (e.g. a "table" for a "desk")
+or generated via Tripo3D as a fallback. All decisions are logged in ASSETS.md.
+
+Recommended sources for CC0 GLB packs:
+- Quaternius (https://quaternius.com)
+- Kenney (https://kenney.nl)
+
+Pack files are treated as read-only by godogen. Do not edit them in place; if
+you need a modified version, edit a copy outside the packs directory.
+"""
+    with open(os.path.join(packs_dir, "README.md"), "w") as f:
+        f.write(readme_content)
+    print("Created assets/packs directory and README.md")
+
     gitignore_path = os.path.join(target, ".gitignore")
     if not os.path.exists(gitignore_path):
         with open(gitignore_path, "w") as f:
