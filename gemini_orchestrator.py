@@ -299,6 +299,28 @@ def transition_to_stage(session: genai.chats.Chat, stage_file: str):
     plan_path = Path("PLAN.md")
     current_plan_content = plan_path.read_text() if plan_path.exists() else ""
 
+    todo_message_addition = ""
+    if stage_file.endswith("task-execution.md"):
+        todo_path = Path("TODO.md")
+        if not todo_path.exists() and plan_path.exists():
+            tasks = []
+            for line in current_plan_content.splitlines():
+                if line.startswith("### ") or line.startswith("## "):
+                    # Extract header text without hash marks
+                    header = line.lstrip("#").strip()
+                    if header.lower() not in ["tasks", "risk tasks", "main build", "amendments", "verify", "final", "after main build"]:
+                        tasks.append(header)
+
+            if tasks:
+                todo_content = "# TODO\n\n## Current task\n" + tasks[0] + "\n\n## Steps\n\n## Done (this task)\n\n## Remaining tasks\n"
+                for i, task in enumerate(tasks[1:], start=1):
+                    todo_content += f"{i}. {task}\n"
+
+                todo_path.write_text(todo_content)
+                todo_message_addition = "\n\nA TODO.md file has been initialized based on PLAN.md. You must read it at the start of every turn and use it as your active execution tracker."
+        elif todo_path.exists():
+            todo_message_addition = "\n\nA TODO.md file already exists. You must read it at the start of every turn and use it as your active execution tracker. Resume from where you left off."
+
     last_plan_content = ORCHESTRATOR_STATE["last_plan_content"]
 
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -335,7 +357,7 @@ def transition_to_stage(session: genai.chats.Chat, stage_file: str):
 
     print(f"Transitioning to stage: {stage_file}", file=sys.stderr)
     instructions = load_stage_instructions(stage_file)
-    message = f"We are now entering a new pipeline stage. Please read these instructions carefully before proceeding:\n\n{instructions}"
+    message = f"We are now entering a new pipeline stage. Please read these instructions carefully before proceeding:\n\n{instructions}{todo_message_addition}"
     # Send the instructions to the model without requiring immediate user action
     response = session.send_message(message)
     print(f"Model response to transition: {response.text}", file=sys.stderr)

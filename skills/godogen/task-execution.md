@@ -2,6 +2,8 @@
 
 Implementation workflow and debugging reference.
 
+During task execution, you must maintain TODO.md as your active execution tracker. Read `.gemini/skills/godogen/todo-tracking.md` for the format and rules. Reading TODO.md at the start of each turn and updating it at the end of each turn is a hard requirement, not a suggestion.
+
 ## Phases
 
 ### Risk tasks (if PLAN.md has any)
