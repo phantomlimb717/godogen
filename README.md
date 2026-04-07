@@ -85,6 +85,12 @@ If you are new to the command line, follow these exact steps to build your first
 7. **Watch it build!**
    The terminal will begin scrolling rapidly as Gemini writes code, creates `.tscn` Godot scenes, and generates assets. You will see outputs like `-> Agent Executing: write_file`. Let it run until it says it is finished. You can open the generated `project.godot` file in the Godot engine at any time to play your game.
 
+### Using House Rules (Project Preamble)
+
+Godogen supports a `HOUSE_RULES.md` file in your generated project directory. This optional file lets you encode project-wide preferences that the AI will follow for every generation and amendment, without needing to repeat them in every prompt.
+
+When the orchestrator starts, it reads `HOUSE_RULES.md` and prepends its contents to the system prompt. This is the perfect place to instruct the agent to "always prefer warm lighting," "use existing assets from the `assets/` folder," or "name the player character Pip." Changes to this file take effect on the next orchestrator run.
+
 ### Create a game project (Advanced)
 
 This repo is the skill development source. To start making a game, run `publish.py` to compile the orchestrator and all the agentic instructions into a fresh project folder:

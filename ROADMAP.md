@@ -4,6 +4,10 @@ This document tracks the evolution of godogen beyond defect fixes. Defects get f
 in PRs and burned to zero. Features and architectural improvements live here, get
 prioritized against each other, and graduate into Jules prompts when their time comes.
 
+## Completed
+
+- **House rules / project preamble.** Implemented in PR #14 (replace 14 with actual PR number). Reads optional `HOUSE_RULES.md` from project root and prepends to system prompt.
+
 ## Feature backlog
 
 These are capabilities godogen should have but doesn't yet. Roughly ordered by
@@ -25,14 +29,6 @@ leverage, but reorder freely as priorities shift.
   workflow and dramatically improves output quality on 3D scenes by skipping the
   weak Tripo3D generation step entirely. Effort: 1 day. Pairs naturally with
   amend mode.
-
-- **House rules / project preamble.** A `HOUSE_RULES.md` file in the project
-  directory that gets prepended to every orchestrator prompt as default behavior.
-  Lets the user customize godogen's behavior per-project without editing skill
-  files. Use cases: "always take multi-angle screenshots after major changes",
-  "prefer cozy warm lighting", "use the assets in /assets/quaternius before
-  generating new ones", "the player character is always controllable with WASD".
-  Effort: half a day. Small change with outsized usability impact.
 
 ### Tier 2: improves reliability of what godogen already does
 

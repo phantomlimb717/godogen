@@ -54,6 +54,33 @@ def main():
             f.write(".gemini\nGEMINI.md\nassets\nscreenshots\n.vqa.log\n.godot\n*.import\n")
         print("Created .gitignore")
 
+    house_rules_path = os.path.join(target, "HOUSE_RULES.md")
+    if not os.path.exists(house_rules_path):
+        with open(house_rules_path, "w") as f:
+            f.write("""# House Rules
+
+These are project-wide preferences that the godogen agent will follow for every
+generation and amendment in this project. Add your standing instructions below.
+The file is read at the start of each run; changes take effect on the next run.
+
+Examples of useful house rules:
+
+- Always take screenshots from multiple camera angles after major scene changes,
+  and verify each angle through visual QA before marking a task complete.
+- Prefer warm, cozy lighting (low color temperature, soft shadows) for all
+  interior scenes unless the prompt explicitly requests otherwise.
+- When 3D assets are needed and the directory `assets/quaternius/` exists, prefer
+  loading from that directory before generating new assets via Tripo3D.
+- The player character is always named "Pip" and always uses the WASD control
+  scheme unless the user specifies otherwise.
+
+Delete the examples above and add your own rules below this line.
+
+---
+
+""")
+        print("Created HOUSE_RULES.md template")
+
     try:
         subprocess.run(["git", "init", "-q"], cwd=target, stderr=subprocess.DEVNULL, check=False)
     except FileNotFoundError:
