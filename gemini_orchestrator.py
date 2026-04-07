@@ -273,6 +273,12 @@ def create_orchestrator_session(client: genai.Client, model_id: str = None) -> g
     # Load initial global instructions from SKILL.md
     base_instructions = load_stage_instructions(".gemini/skills/godogen/SKILL.md")
 
+    house_rules_path = Path("HOUSE_RULES.md")
+    if house_rules_path.exists():
+        house_rules_content = house_rules_path.read_text().strip()
+        if house_rules_content:
+            base_instructions += f"\n\n---\n\n## Project House Rules\n\nThe following rules apply for the entire duration of this project. Follow them in every stage and every task:\n\n{house_rules_content}"
+
     # Register the tools with Gemini
     tools = sorted([
         run_asset_gen, run_tripo3d, lookup_godot_api, run_visual_qa_analysis,

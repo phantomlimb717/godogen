@@ -48,6 +48,31 @@ def main():
     shutil.copy2(os.path.join(repo_root, "gemini_orchestrator.py"), os.path.join(target, "gemini_orchestrator.py"))
     print("Copied gemini_orchestrator.py")
 
+    house_rules_content = """# House Rules
+
+These are project-wide preferences that the godogen agent will follow for every
+generation and amendment in this project. Add your standing instructions below.
+The file is read at the start of each run; changes take effect on the next run.
+
+Examples of useful house rules:
+
+- Always take screenshots from multiple camera angles after major scene changes,
+  and verify each angle through visual QA before marking a task complete.
+- Prefer warm, cozy lighting (low color temperature, soft shadows) for all
+  interior scenes unless the prompt explicitly requests otherwise.
+- When 3D assets are needed and the directory `assets/quaternius/` exists, prefer
+  loading from that directory before generating new assets via Tripo3D.
+- The player character is always named "Pip" and always uses the WASD control
+  scheme unless the user specifies otherwise.
+
+Delete the examples above and add your own rules below this line.
+
+---
+"""
+    with open(os.path.join(target, "HOUSE_RULES.md"), "w") as f:
+        f.write(house_rules_content)
+    print("Created HOUSE_RULES.md template")
+
     packs_dir = os.path.join(target, "assets", "packs")
     os.makedirs(packs_dir, exist_ok=True)
     with open(os.path.join(packs_dir, ".gitkeep"), "w") as f:
