@@ -1,94 +1,79 @@
 # Asset Generator
 
-Generate PNG images (Gemini or xAI Grok) and GLB 3D models (Tripo3D) from text prompts.
+Generate PNG images (Imagen 4) and GLB 3D models (Tripo3D) from text prompts. Both image and video generation are routed through Google's native Imagen 4 and Veo 3.1 Lite APIs.
 
 ## Models
 
 | Model | Flag | Cost | Best for |
 |-------|------|------|----------|
-| `gemini-3.1-flash-image-preview` | `--model gemini` | 5-15¢ (by size) | Precise prompt following — references, characters, backgrounds, 3D refs |
-| `grok-imagine-image` | `--model grok` | 2¢ | High-quality but imprecise — textures, simple objects, item kits |
+| `imagen-4.0-generate-001` | N/A (Default) | 2¢ | All image generation (textures, simple objects, backgrounds, characters, 3D refs) |
 
 **When to use which:**
-- **Gemini** — reference images, character design, 3D model references, animated sprite refs/poses, backgrounds with precise layout. Gemini costs more but reliably produces what you described.
-- **Grok** — textures, simple objects, item kits, props, simple scenic backgrounds (sky, clouds, abstract). Produces high-quality (even photographic) output but often defaults to common interpretations instead of following specific instructions. Great when exact prompt adherence doesn't matter.
-
-Default is `grok`. Switch to `gemini` when precision matters.
-
-### Gemini sizes and costs
-
-| Size | Cost |
-|------|------|
-| `512` | 5¢ |
-| `1K` | 7¢ |
-| `2K` | 10¢ |
-| `4K` | 15¢ |
+- **Imagen 4** handles all image generation tasks previously split between models.
 
 ## CLI Reference
 
 Tools live at `.gemini/skills/tools/`. Run from the project root.
 
-### Generate image (2-15 cents)
+### Generate image (2 cents)
 
 ```bash
 python3 .gemini/skills/tools/asset_gen.py image \
   --prompt "the full prompt" -o assets/img/car.png
 ```
 
-`--model` (default `grok`): `grok` (2¢), `gemini` (5-15¢ by size)
-`--size` (default `1K`): Grok: `1K`, `2K`. Gemini: `512`, `1K`, `2K`, `4K`.
-`--aspect-ratio` (default `1:1`): varies by backend — both support `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`
+`--aspect-ratio` (default `1:1`): supports `1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, `21:9`.
+*Note: `--model` and `--size` flags are deprecated and ignored if provided.*
 
 Typical combos:
-- `--model gemini --size 1K` — reference images, character sprites, 3D refs (7¢)
-- `--model gemini --size 2K --aspect-ratio 16:9` — backgrounds, title screens (10¢)
-- `--model grok` — textures, simple objects, item kits (2¢)
+- `--aspect-ratio 1:1` — reference images, character sprites, 3D refs, item kits
+- `--aspect-ratio 16:9` — backgrounds, title screens
 
 ### Remove background
 
 Read `.gemini/skills/rembg.md` for full guide: CLI, prompting strategy, troubleshooting, batch mode.
 
-### Generate animated sprite (7¢ ref + 7¢/pose + 5¢/sec video)
+### Generate animated sprite (2¢ ref + 2¢/pose + 5¢/sec video)
 
 Workflow: reference → pose frame → video → slice → loop trim → rembg.
 
-**Step 1: Reference image (7¢ — Gemini)**
+**Step 1: Reference image (2¢ — Imagen 4)**
 
-Gemini 1K, 1:1, neutral pose, solid BG — same color strategy as for rembg. Review carefully: this image anchors all subsequent poses and videos.
+Neutral pose, solid BG — same color strategy as for rembg. Review carefully: this image anchors all subsequent videos.
 
 ```bash
 python3 .gemini/skills/tools/asset_gen.py image \
-  --model gemini --size 1K \
   --prompt "knight in armor, neutral standing pose, facing right, solid dark-green background" \
   --aspect-ratio 1:1 -o assets/img/knight_ref.png
 ```
 
-**Step 2: Pose frame (7¢ — Gemini)**
+**Step 2: Pose frame (2¢ — Imagen 4)**
 
-Image-to-image edit: feed the reference, prompt only for the action/pose. Gemini is preferred here — the pose must match the prompt precisely since it anchors the video.
+*Note: Imagen 4 text-to-image does not natively support an `image` parameter for image-to-image edits in this script, though you can still generate the desired pose with careful prompting.*
 
 ```bash
 python3 .gemini/skills/tools/asset_gen.py image \
-  --model gemini \
-  --prompt "walking to the right, mid-stride pose, side view, solid dark-green background" \
-  --image assets/img/knight_ref.png \
+  --prompt "knight in armor, walking to the right, mid-stride pose, side view, solid dark-green background" \
   --aspect-ratio 1:1 -o assets/img/knight_walk_pose.png
 ```
 
-**Step 3: Generate video**
+**Step 3: Generate video (Veo 3.1 Lite)**
 
-Feed the pose frame (not the reference) as the starting image. Prompt focuses on the motion, not appearance. Choose duration to fit the action — 2s for walk/run cycles, longer for complex actions.
+Feed the pose frame (not the reference) as the starting image. Prompt focuses on the motion, not appearance.
+
+*Note regarding Veo:*
+- **Slow Generation:** Veo 3.1 Lite can take 30 to 90 seconds (wall clock) per video generation, so the script polls until completion.
+- **Duration Floor:** Veo strictly requires durations between 4 and 8 seconds. Even if you request 2s, the CLI will clamp your request to 4s to satisfy the API.
+- **Reference Images:** Veo's Python SDK currently has a broken `reference_images` parameter (googleapis/python-genai #1988). Godogen correctly works around this by using the `image` parameter instead, which starts the video directly from the pose frame.
 
 ```bash
 python3 .gemini/skills/tools/asset_gen.py video \
   --prompt "walking to the right, smooth walk cycle, solid dark-green background" \
   --image assets/img/knight_walk_pose.png \
-  --duration 2 -o assets/video/knight_walk.mp4
+  --duration 4 -o assets/video/knight_walk.mp4
 ```
 
-`--duration` (1-15 seconds), `--resolution` (default `720p`): `720p`, `480p`
-
-Same cost per second at both resolutions — always use `720p`. Fall back to `480p` only if 720p fails (e.g. timeout or API error).
+`--duration` (>= 4 seconds), `--resolution` (deprecated, ignored by Veo)
 
 **Step 4: Extract frames**
 
@@ -119,7 +104,7 @@ python3 .gemini/skills/tools/rembg_matting.py \
 
 **Step 7: Additional animations**
 
-Repeat from step 2 using the same reference image. Each new animation costs 7¢ (Gemini pose) + video duration × 5¢.
+Repeat from step 2 for other poses. Each new animation costs 2¢ (pose) + video duration × 5¢.
 
 ### Convert image to GLB (40-50 cents)
 
@@ -150,24 +135,16 @@ Progress goes to stderr.
 
 | Operation | Options | Cost | Notes |
 |-----------|---------|------|-------|
-| Image | --model grok | 2 cents | Fast, simple images |
-| Image | --model gemini --size 512 | 5 cents | Small refs, quick tests |
-| Image | --model gemini --size 1K | 7 cents | References, characters, 3D refs |
-| Image | --model gemini --size 2K | 10 cents | Backgrounds, title screens |
-| Image | --model gemini --size 4K | 15 cents | Large maps, panoramas |
+| Image | Any | 2 cents | Handled by Imagen 4 |
 | GLB | default | 50 cents | P1 model, fast, game-optimized topology |
 | GLB | high | 40 cents | v3.1, HD textures |
-| Video | --duration N | 5¢ × N seconds | Pose frame as starting image |
+| Video | --duration N | 5¢ × N seconds | Veo 3.1 Lite (N clamped to 4-8s) |
 
-A full 3D asset (Gemini 1K image + GLB) costs 47 cents at high quality. A texture (Grok) is 2 cents. A background is 2¢ (Grok, simple) or 10¢ (Gemini 2K, precise layout). A 3-second animation costs 24 cents (7¢ Gemini ref + 7¢ Gemini pose + 10¢ video); additional animations from the same ref cost 7¢ pose + video.
+A full 3D asset (Imagen image + GLB) costs 42 cents at high quality. A background is 2¢. A 4-second animation costs 24 cents (2¢ ref + 2¢ pose + 20¢ video).
 
 ## Image Resolution
 
-Use the full generation resolution — don't downscale for aesthetic reasons.
-- Default (`1K`): textures, sprites, 3D references, character refs
-- `512` (Gemini only): quick tests
-- `2K`: HQ objects/textures, backgrounds, title screens
-- `4K` (Gemini only): large game maps, panoramic backgrounds
+Imagen 4 doesn't support the `size` parameter. Rely on `aspect-ratio`.
 
 ### Small sprites problem
 
@@ -181,22 +158,20 @@ Minimum generation resolution is 1K. A 1024px image downscaled to 64px or even 1
 
 For any asset needing transparency, read `.gemini/skills/rembg.md` first — covers BG color strategy, CLI, and troubleshooting.
 
-### Background / large scenic image (2c Grok or 10c Gemini)
+### Background / large scenic image (2c)
 
 Title screens, sky panoramas, parallax layers, environmental art. Best place for art direction language.
-
-Grok works well for simple scenic backgrounds (sky, clouds, abstract environments) — 2¢. Use Gemini when layout and composition must match the prompt precisely (specific object placement, layered parallax with exact structure) — 10¢.
 
 ```
 {description in the art style}. {composition instructions}.
 ```
-`image --prompt "..." --size 2K --aspect-ratio 16:9 -o path.png` (Grok default, add `--model gemini` for precise layout)
+`image --prompt "..." --aspect-ratio 16:9 -o path.png`
 
 No post-processing — use as-is.
 
-### Texture (2c Grok)
+### Texture (2c)
 
-Tileable surfaces: ground, walls, floors, UI panels. Grok handles these well — exact prompt adherence isn't critical for textures.
+Tileable surfaces: ground, walls, floors, UI panels.
 
 ```
 {name}, {description}. Top-down view, uniform lighting, no shadows, seamless tileable texture, suitable for game engine tiling, clean edges.
@@ -207,35 +182,22 @@ No background removal — the entire image IS the texture.
 
 ### Single object / sprite
 
-**Simple objects** (2c Grok) — props, items, icons where exact appearance isn't critical:
+Props, items, icons, characters, enemies, NPCs:
 ```
 {name}, {description}. Centered on a solid {bg_color} background.
 ```
 `image --prompt "..." -o path.png`
 
-**Character design** (7c Gemini 1K) — player characters, enemies, NPCs where the design must match the prompt:
-```
-{name}, {description}. Centered on a solid {bg_color} background.
-```
-`image --model gemini --prompt "..." -o path.png`
+*(Note: Imagen 4 does not support passing a reference image for variants via the CLI currently.)*
 
-**Variant from reference** (uses `--image`; see Tips for prompting guidance):
-```
-{what to change: different angle, pose, color, etc.}
-```
-`image --prompt "..." --image path_ref.png -o path_variant.png`
+### Item kit (2c for 4 items)
 
-### Item kit (2c Grok for 4 items)
-
-Generate multiple objects in one image, then slice. Cheaper than generating individually (2¢ total vs 2¢ each).
+Generate multiple objects in one image, then slice. Cheaper than generating individually.
 
 ```
 {item1}, {item2}, {item3}, {item4}. 2x2 grid layout, each item centered in its cell, solid {bg_color} background. {art style}.
 ```
 `image --prompt "..." -o path_grid.png`
-
-To match an existing style, pass a reference — the model sees it, so just describe the items:
-`image --prompt "..." --image path_style_ref.png -o path_grid.png`
 
 Slice into individual PNGs:
 ```bash
@@ -245,14 +207,14 @@ python3 .gemini/skills/tools/grid_slice.py path_grid.png \
 
 Then rembg each item if transparency is needed. Supports any grid: `2x2`, `3x3`, `2x4`, etc.
 
-### 3D model reference (7c Gemini 1K) + GLB (40-50c)
+### 3D model reference (2c) + GLB (40-50c)
 
-Use Gemini — clean composition and precise prompt following are critical for 3D conversion.
+Clean composition and precise prompt following are critical for 3D conversion.
 
 ```
 3D model reference of {name}. {description}. 3/4 front elevated camera angle, solid white background, soft diffused studio lighting, matte material finish, single centered subject, no shadows on background. Any windows or glass should be solid tinted (opaque).
 ```
-`image --model gemini --prompt "..." -o path.png`
+`image --prompt "..." -o path.png`
 
 Then: `glb --image ... -o ...` — do NOT remove the background; Tripo3D needs the solid white bg for clean separation.
 
@@ -262,9 +224,9 @@ Key: 3/4 front elevated angle, solid white/gray bg, matte finish (no reflections
 
 Full workflow (ref → pose → video → frames → loop trim → rembg) is in CLI Reference above. Prompt templates:
 
-**Reference (Gemini 1K):** `{name}, {description}. Neutral standing pose, facing right, centered on a solid {bg_color} background. Clean silhouette.`
+**Reference:** `{name}, {description}. Neutral standing pose, facing right, centered on a solid {bg_color} background. Clean silhouette.`
 
-**Pose (per action):** `{action pose description}, side view, solid {bg_color} background.`
+**Pose (per action):** `{name}, {description}, {action pose description}, side view, solid {bg_color} background.`
 
 **Video (per action):** `{action}, smooth animation. Solid {bg_color} background.`
 
@@ -295,7 +257,6 @@ Video-extracted animations look choppy when played back at the wrong frame rate.
 
 ## Tips
 
-- **Image-to-image prompting**: when `--image` is provided, the model sees the reference. Don't re-describe the character/object — focus the prompt on what's different (the action, angle, or change). Re-describing appearance competes with the visual reference and dilutes consistency.
 - Generate multiple images in parallel via multiple Bash calls in one message.
 - Always review generated PNGs before GLB conversion — read each image and check: centered? complete? clean background? Regenerate bad ones first; a bad image wastes 30+ cents on GLB.
 - Convert approved images to GLBs in parallel.
