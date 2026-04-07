@@ -11,13 +11,6 @@ leverage, but reorder freely as priorities shift.
 
 ### Tier 1: makes godogen feel like a creative tool, not a one-shot generator
 
-- **Amend mode for iterative refinement.** Add an `--amend "list of changes"` flag
-  that lets you point godogen at an existing project and request additions or fixes.
-  The orchestrator treats existing artifacts as ground truth and only runs
-  task-execution on the new items. This is the single most impactful feature for
-  making godogen feel like a creative tool. Effort: 1-2 days. Without this, every
-  iteration is a from-scratch regeneration, which is expensive and loses prior work.
-
 - **House rules / project preamble.** A `HOUSE_RULES.md` file in the project
   directory that gets prepended to every orchestrator prompt as default behavior.
   Lets the user customize godogen's behavior per-project without editing skill
@@ -98,6 +91,7 @@ leverage, but reorder freely as priorities shift.
 
 ## Completed
 
+- **Amend mode for iterative refinement.** Added `--amend` flag to orchestrator, allowing users to modify or extend existing projects without regenerating them from scratch.
 - **Asset pack support.** Implemented in PR #14. Detects `assets/packs/` automatically, follows a six-step matching protocol with documented substitution and fallback, and generates pack coverage warnings when substitution rates exceed 50%.
 
 ---
