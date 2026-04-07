@@ -23,7 +23,7 @@ Read `reference.png` — understand the visual composition: what objects are vis
 Read `STRUCTURE.md` (especially **Asset Hints**) and `PLAN.md` (especially **Assets needed** per task). Cross-reference both with the reference image to build the complete asset list:
 - **3D models**: characters, vehicles, key props, buildings — anything that needs geometry
 - **Textures**: ground surfaces, walls, UI backgrounds — flat materials that tile
-- **Backgrounds**: sky panoramas, parallax layers, title screens, large scenic images — use `--model gemini --size 2K` and an appropriate `--aspect-ratio`
+- **Backgrounds**: sky panoramas, parallax layers, title screens, large scenic images — use `--size 2K` and an appropriate `--aspect-ratio`
 - **Animated sprites**: characters or objects with multiple actions (walk, attack, idle) — plan the motion graph before generating
 
 The scaffold's Asset Hints describe what the architecture needs. The decomposer's Assets needed fields describe what each task needs. Reconcile both — they may overlap or one may mention assets the other missed.
@@ -31,17 +31,16 @@ The scaffold's Asset Hints describe what the architecture needs. The decomposer'
 ### 2. Prioritize and budget
 
 Each asset costs:
-- Texture / simple sprite (Grok): 2 cents
-- Character / reference / 3D ref (Gemini 1K): 7 cents
-- Background: 2 cents (Grok, simple scenic) or 10 cents (Gemini 2K, precise layout)
-- 3D model: 37 cents (7 cent Gemini image + 30 cent GLB at medium quality)
+- Texture / simple sprite / Character / reference / 3D ref: 2 cents (Imagen 4 Fast)
+- Background: 2 cents (Imagen 4 Fast)
+- 3D model: 32 cents (2 cent Imagen 4 Fast image + 30 cent GLB at medium quality)
 
 Animated sprites cost more — budget carefully:
-- Reference image (Gemini 1K): 7 cents (once per character — all animations share it)
-- Root action (from ref): 7 cent Gemini pose + 5 cents × duration
-- Chained action (from predecessor's last frame): 5 cents × duration only
+- Reference image: 2 cents (once per character — all animations share it)
+- Root action (from ref): 2 cent pose + 5 cents × duration (Veo 3.1 Lite)
+- Chained action (from predecessor's last frame): 5 cents × duration only (Veo 3.1 Lite)
 - Example: knight with walk 3s, idle 2s (roots) + attack 2s (chained from walk)
-  = 7 (ref) + 22 (walk) + 17 (idle) + 10 (attack) = 56 cents
+  = 2 (ref) + 17 (walk) + 12 (idle) + 10 (attack) = 41 cents
 
 Prioritize by visual impact — what makes the game recognizable. Cut low-impact assets first if budget is tight. Reserve ~10% of budget for retries.
 
@@ -57,7 +56,7 @@ Craft each prompt for its specific goal. The art direction tells you the visual 
 
 #### Backend selection
 
-Use Gemini (`--model gemini`) where prompt precision matters — reference images, character design, 3D model references, animated sprite refs/poses, backgrounds with precise layout. Use Grok (default) for textures, simple objects, item kits, and simple scenic backgrounds (sky, clouds, abstract).
+All image generation goes through Imagen 4 (`imagen-4.0-generate-001`) and all video generation goes through Veo 3.1 Lite (`veo-3.1-lite-generate-preview`). The `--model` flag is preserved for backward compatibility but is ignored.
 
 #### Using image references for consistency
 
@@ -81,7 +80,7 @@ To prevent cost overruns, a JSON log is automatically maintained that tracks the
 #### Common Mistakes
 
 - **Detailed image shrunk to a tile** — minimum generation resolution is 1K. A 1024px image downscaled to 64px looks muddy. For small sprites: avoid tiny display sizes (128px+ preferred), generate a kit image with multiple objects sharing one 1K image and crop, or prompt for bold simple forms (thick outlines, flat colors, exaggerated proportions).
-- **Tiling texture for a unique background** — don't tile a small repeating texture where the game needs a single scenic background. Use `--model gemini --size 2K` instead.
+- **Tiling texture for a unique background** — don't tile a small repeating texture where the game needs a single scenic background. Use `--size 2K` instead.
 - **Image where procedural drawing works** — pure geometric primitives (solid-color rectangles for health bars, single-color circle for a ball, straight divider lines) should be drawn in code. But anything with texture, detail, or artistic style — characters, backgrounds, terrain, objects, icons — should use generated assets even if you *could* approximate it with code. Procedural vector art almost always looks worse than a generated image.
 - **Stretching one texture over a large area** — a small texture stretched across a big surface looks blurry. Use a tileable texture or generate at higher resolution.
 
@@ -91,7 +90,7 @@ Every asset row **must** include a **Size** column — the intended in-game dime
 
 - **3D models:** target size in meters, e.g. `4m long` (car), `1.8m tall` (character), `0.3m` (coin)
 - **Textures:** tile size in meters, e.g. `2m tile` (floor repeats every 2m via UV scale)
-- **Backgrounds (pro model):** pixel dimensions to display at, e.g. `1920x1080` (fullscreen), `2560x720` (parallax layer). Mention if it should fill the viewport or scroll.
+- **Backgrounds:** pixel dimensions to display at, e.g. `1920x1080` (fullscreen), `2560x720` (parallax layer). Mention if it should fill the viewport or scroll.
 - **Sprites:** display size in pixels, e.g. `128x128 px` (player), `64x64 px` (item). This is the size in the game viewport, not the source resolution.
 
 ```markdown
