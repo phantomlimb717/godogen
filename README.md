@@ -93,6 +93,16 @@ If you are new to the command line, follow these exact steps to build your first
 7. **Watch it build!**
    The terminal will begin scrolling rapidly as Gemini writes code, creates `.tscn` Godot scenes, and generates assets. You will see outputs like `-> Agent Executing: write_file`. Let it run until it says it is finished. You can open the generated `project.godot` file in the Godot engine at any time to play your game.
 
+### Amend Mode (Iterative Refinement)
+
+Godogen supports iterative refinement of existing projects using the `--amend` flag. If you have already generated a project and want to add a new feature or fix a bug, you can run the orchestrator in amend mode:
+
+```powershell
+python gemini_orchestrator.py --amend "add a chest in the corner of the tavern that opens when the player approaches"
+```
+
+In amend mode, the orchestrator treats the existing project files (`PLAN.md`, `STRUCTURE.md`, `ASSETS.md`, `reference.png`) as ground truth. It will **not** regenerate your project from scratch. Instead, it reads the current state, adds new tasks to an "Amendments" section in `PLAN.md`, and runs the execution stage on only those new tasks. This allows for rapid, incremental refinement that builds upon your existing work. Note that amend mode and fresh generation (`--prompt`) are mutually exclusive.
+
 ### Create a game project (Advanced)
 
 This repo is the skill development source. To start making a game, run `publish.py` to compile the orchestrator and all the agentic instructions into a fresh project folder:
