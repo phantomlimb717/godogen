@@ -32,7 +32,12 @@ from google.genai import types
 
 ORCHESTRATOR_STATE = {
     "current_stage": "initialization",
-    "last_plan_content": ""
+    "last_plan_content": "",
+    "current_todo_task": None,
+    "task_turn_count": 0,
+    "task_file_writes": {},
+    "reflection_triggered_for_task": False,
+    "trigger_reflection": False
 }
 
 STAGE_ALLOWED_TOOLS = {
@@ -110,6 +115,10 @@ def process_function_calls(function_calls, enforce_stage_gates: bool = True) -> 
         args = {k: v for k, v in (function_call.args or {}).items() if v is not None}
 
         print(f"-> Agent Executing: {func_name}({args})", file=sys.stderr)
+
+        if func_name == "write_file" and "filepath" in args:
+            filepath = args["filepath"]
+            ORCHESTRATOR_STATE["task_file_writes"][filepath] = ORCHESTRATOR_STATE["task_file_writes"].get(filepath, 0) + 1
 
         if enforce_stage_gates:
             current_stage = ORCHESTRATOR_STATE["current_stage"]
@@ -384,6 +393,21 @@ def run_autonomous_loop(session: genai.chats.Chat, message: str):
     print("\n--- Sending Prompt to Gemini ---", file=sys.stderr)
     print(f"User: {message}\n", file=sys.stderr)
 
+    reflection_prompt = (
+        "REFLECTION TRIGGER: You have been working on the same task for several turns without clear progress. "
+        "Take a moment to step back and reconsider. Questions to ask yourself: "
+        "First, what is the simplest version of this task that would pass verification? Have you tried that approach, "
+        "or have you been pursuing a more complex approach that may not be necessary? "
+        "Second, are you debugging the right thing? The error message you keep seeing might be pointing at a symptom "
+        "rather than the root cause. Consider whether the failure is in your implementation code, your test code, "
+        "or your assumptions about how the underlying system works. "
+        "Third, is there a simpler test you could write that would verify the same behavior with less mechanism? "
+        "Fourth, if you genuinely cannot make progress on this task, you may mark it as 'blocked' in TODO.md "
+        "with a one-line explanation and proceed to the next task. A blocked task is acceptable; an infinite loop is not. "
+        "The user can address blocked tasks in a future amendment. "
+        "After this reflection, update TODO.md with your conclusion and proceed accordingly."
+    )
+
     try:
         # We must manually handle the tool loop to print tool calls to the console in real-time
         response = session.send_message(message)
@@ -392,6 +416,46 @@ def run_autonomous_loop(session: genai.chats.Chat, message: str):
             # Check if the model decided to call any tools
             if response.function_calls:
                 function_responses = process_function_calls(response.function_calls)
+
+                # Reflection check
+                current_stage = ORCHESTRATOR_STATE.get("current_stage", "")
+                if current_stage.endswith("task-execution.md") or current_stage.endswith("amend.md"):
+                    todo_path = Path("TODO.md")
+                    if todo_path.exists():
+                        todo_content = todo_path.read_text().splitlines()
+                        parsed_task = None
+                        for i, line in enumerate(todo_content):
+                            if line.strip().lower() == "## current task":
+                                if i + 1 < len(todo_content):
+                                    parsed_task = todo_content[i + 1].strip()
+                                break
+
+                        if parsed_task:
+                            if parsed_task == ORCHESTRATOR_STATE["current_todo_task"]:
+                                ORCHESTRATOR_STATE["task_turn_count"] += 1
+                            else:
+                                ORCHESTRATOR_STATE["current_todo_task"] = parsed_task
+                                ORCHESTRATOR_STATE["task_turn_count"] = 1
+                                ORCHESTRATOR_STATE["task_file_writes"] = {}
+                                ORCHESTRATOR_STATE["reflection_triggered_for_task"] = False
+
+                            turn_count = ORCHESTRATOR_STATE["task_turn_count"]
+                            writes_dict = ORCHESTRATOR_STATE["task_file_writes"]
+                            max_writes = max(writes_dict.values()) if writes_dict else 0
+
+                            if (turn_count > 5 or max_writes > 3) and not ORCHESTRATOR_STATE["reflection_triggered_for_task"]:
+                                print(f"[REFLECTION TRIGGER] Task '{parsed_task}' has been active for {turn_count} turns. Forcing reflection.", file=sys.stderr)
+                                ORCHESTRATOR_STATE["trigger_reflection"] = True
+                                ORCHESTRATOR_STATE["reflection_triggered_for_task"] = True
+
+                if ORCHESTRATOR_STATE.get("trigger_reflection"):
+                    reflection_part = types.Part.from_function_response(
+                        name="reflection_trigger",
+                        response={"result": reflection_prompt}
+                    )
+                    function_responses.insert(0, reflection_part)
+                    ORCHESTRATOR_STATE["trigger_reflection"] = False
+
                 # Send the tool output back to the model, which returns the next step
                 response = session.send_message(function_responses)
             else:
