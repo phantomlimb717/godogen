@@ -4,38 +4,6 @@ This document tracks the evolution of godogen beyond defect fixes. Defects get f
 in PRs and burned to zero. Features and architectural improvements live here, get
 prioritized against each other, and graduate into Jules prompts when their time comes.
 
-## In flight
-
-Currently being implemented by Jules.
-
-- **Tiered model routing for forked sub-agents** (prompt 3). Routes Visual QA fork
-  and Godot API lookup fork to Gemini Flash via a `MODEL_CONFIG` dict at the top of
-  the orchestrator. Main orchestrator stays on Pro preview. Note: the decomposer
-  fork mentioned in the original prompt was dropped after discovering the decomposer
-  is not actually a forked sub-agent in the current architecture (see Considered
-  and Rejected).
-
-- **Stage gate decoupling for sub-agents** (prompt A from latest cleanup batch).
-  Refactor `process_function_calls` to accept an `enforce_stage_gates` parameter,
-  defaulted True for the main orchestrator and explicitly False when called from
-  forked sub-agents. Prevents future bugs where stage gates inadvertently apply to
-  sub-agent contexts that have no meaningful "stage."
-
-- **Stronger pipeline resumability** (prompt B from latest cleanup batch). Adds a
-  `.godogen_state/stage_history.jsonl` log that records stage entries and
-  completions independently of artifact files. Resumability checks now require both
-  the artifact to exist AND the stage history to show prior completion, preventing
-  the front-running edge case where an artifact appears out of order.
-
-- **Replace xAI Grok with Imagen 4 and Veo 3.1 Lite**. Surgical swap in
-  `asset_gen.py` to remove the xAI dependency entirely. Image generation moves to
-  `imagen-4.0-generate-001`, video generation moves to `veo-3.1-lite-generate-preview`.
-  Includes a critical caveat to *not* use Veo's `reference_images` parameter due to
-  an unresolved Python SDK bug (googleapis/python-genai#1988); use the simpler
-  `image` parameter instead.
-
----
-
 ## Feature backlog
 
 These are capabilities godogen should have but doesn't yet. Roughly ordered by
