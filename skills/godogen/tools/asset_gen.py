@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Asset Generator CLI - creates images (Gemini / xAI Grok) and GLBs (Tripo3D).
+"""Asset Generator CLI - creates images (Imagen 4) and videos (Veo 3.1 Lite) and GLBs (Tripo3D).
 
 Subcommands:
-  image   Generate a PNG from a prompt (Gemini 5-15¢ or Grok 2¢)
-  video   Generate MP4 video from prompt + reference image (5¢/sec, Grok)
+  image   Generate a PNG from a prompt (Imagen 4, 2¢)
+  video   Generate MP4 video from prompt + reference image (Veo 3.1 Lite, 5¢/sec for 720p)
   glb     Convert a PNG to a GLB 3D model via Tripo3D (30-60¢)
 
 Output: JSON to stdout. Progress to stderr.
@@ -250,8 +250,6 @@ def main():
 
     p_img = sub.add_parser("image", help="Generate a PNG image (Imagen 4, 2¢)")
     p_img.add_argument("--prompt", required=True, help="Full image generation prompt")
-    p_img.add_argument("--model", choices=["gemini", "grok", "imagen"], default="imagen",
-                       help="Deprecated. All image generation uses Imagen 4.")
     p_img.add_argument("--size", choices=ALL_SIZES, default="1K",
                        help="Deprecated. Ignored by Imagen 4.")
     p_img.add_argument("--aspect-ratio", choices=ALL_ASPECT_RATIOS, default="1:1",
@@ -262,8 +260,6 @@ def main():
 
     p_vid = sub.add_parser("video", help="Generate MP4 video from prompt + reference image (Veo 3.1 Lite, 5¢/sec)")
     p_vid.add_argument("--prompt", required=True, help="Video generation prompt")
-    p_vid.add_argument("--model", choices=["grok", "gemini", "veo"], default="veo",
-                       help="Deprecated. All video generation uses Veo 3.1 Lite.")
     p_vid.add_argument("--image", required=True, help="Reference image path (starting frame)")
     p_vid.add_argument("--duration", type=int, required=True, help="Duration in seconds (>= 4)")
     p_vid.add_argument("--resolution", choices=["480p", "720p", "1080p", "4k"], default="720p",
