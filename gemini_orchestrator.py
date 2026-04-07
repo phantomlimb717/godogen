@@ -15,6 +15,12 @@ the Godogen AI game development pipeline using Google Gemini Pro.
 # Any future edit that breaks this silently regresses API cost.
 # ==========================================
 
+MODEL_CONFIG = {
+    "main_orchestrator": "gemini-3.1-pro-preview-customtools",
+    "visual_qa_fork": "gemini-3.1-flash-lite-preview",
+    "godot_api_lookup_fork": "gemini-3.1-flash-lite-preview"
+}
+
 import os
 import sys
 import argparse
@@ -136,8 +142,9 @@ def process_function_calls(function_calls, enforce_stage_gates: bool = True) -> 
         )
     return function_responses
 
-def lookup_godot_api(query: str) -> str:
+def lookup_godot_api(query: str, model: str = None) -> str:
     """Query the Godot API Documentation."""
+    model_id = model or MODEL_CONFIG["godot_api_lookup_fork"]
     # Spawn a separate Gemini API call (forked context) for lookup
     client = get_gemini_client()
     instructions = load_stage_instructions(".gemini/skills/godot-api/SKILL.md")
@@ -151,7 +158,7 @@ def lookup_godot_api(query: str) -> str:
         tools=tools
     )
 
-    session = client.chats.create(model="gemini-3.1-pro-preview-customtools", config=config)
+    session = client.chats.create(model=model_id, config=config)
     response = session.send_message(f"Lookup Godot API query: {query}")
 
     # Run the autonomous tool loop for the sub-agent until it delivers the final text answer
@@ -225,9 +232,10 @@ def run_bash_command(command: str) -> str:
     except Exception as e:
         return f"Error executing command: {str(e)}"
 
-def run_visual_qa_analysis(mode: str, reference_path: str = None, game_screenshots: list[str] = None, question: str = None) -> str:
+def run_visual_qa_analysis(mode: str, reference_path: str = None, game_screenshots: list[str] = None, question: str = None, model: str = None) -> str:
     """Run visual QA on screenshots compared to a reference image."""
-    cmd = ["python", ".gemini/skills/visual-qa/scripts/visual_qa.py"]
+    model_id = model or MODEL_CONFIG["visual_qa_fork"]
+    cmd = ["python", ".gemini/skills/visual-qa/scripts/visual_qa.py", "--model", model_id]
     if question:
         cmd.extend(["--question", question])
         if game_screenshots:
@@ -258,9 +266,9 @@ def record_stage_completion(stage_file: str):
     with open(log_file, "a") as f:
         f.write(json.dumps(record) + "\n")
 
-def create_orchestrator_session(client: genai.Client) -> genai.chats.Chat:
+def create_orchestrator_session(client: genai.Client, model_id: str = None) -> genai.chats.Chat:
     """Create the main orchestrator ChatSession."""
-    model_id = "gemini-3.1-pro-preview-customtools" # Advanced reasoning + context window optimized for custom tools/bash agentic workflows
+    model_id = model_id or MODEL_CONFIG["main_orchestrator"]
 
     # Load initial global instructions from SKILL.md
     base_instructions = load_stage_instructions(".gemini/skills/godogen/SKILL.md")
