@@ -244,6 +244,20 @@ def run_visual_qa_analysis(mode: str, reference_path: str = None, game_screensho
     except subprocess.CalledProcessError as e:
         return f"Visual QA Error:\n{e.stderr}"
 
+def record_stage_completion(stage_file: str):
+    """Record that a stage has successfully completed."""
+    state_dir = Path(".godogen_state")
+    state_dir.mkdir(parents=True, exist_ok=True)
+    log_file = state_dir / "stage_history.jsonl"
+
+    record = {
+        "timestamp": datetime.datetime.now().isoformat(),
+        "completed_stage": stage_file
+    }
+
+    with open(log_file, "a") as f:
+        f.write(json.dumps(record) + "\n")
+
 def create_orchestrator_session(client: genai.Client) -> genai.chats.Chat:
     """Create the main orchestrator ChatSession."""
     model_id = "gemini-3.1-pro-preview-customtools" # Advanced reasoning + context window optimized for custom tools/bash agentic workflows
@@ -286,6 +300,20 @@ def transition_to_stage(session: genai.chats.Chat, stage_file: str):
 
     print(f"[{timestamp}] Stage Transition: {stage_file}", file=sys.stdout)
     print(f"--- PLAN.md Changes ---\n{diff_output}\n-----------------------", file=sys.stdout)
+
+    # Record the stage transition
+    state_dir = Path(".godogen_state")
+    state_dir.mkdir(parents=True, exist_ok=True)
+    log_file = state_dir / "stage_history.jsonl"
+
+    transition_record = {
+        "timestamp": datetime.datetime.now().isoformat(),
+        "entered_stage": stage_file,
+        "exited_stage": ORCHESTRATOR_STATE.get("current_stage")
+    }
+
+    with open(log_file, "a") as f:
+        f.write(json.dumps(transition_record) + "\n")
 
     ORCHESTRATOR_STATE["current_stage"] = stage_file
     ORCHESTRATOR_STATE["last_plan_content"] = current_plan_content
@@ -352,16 +380,36 @@ def main():
     for stage in pipeline_stages:
         artifact = stage["artifact"]
 
-        # Resumability check: if artifact exists, skip to next stage
+        # Resumability check: if artifact exists, verify it completed
         if artifact and Path(artifact).exists():
-            print(f"Found {artifact}. Skipping {stage['file']} stage.", file=sys.stderr)
-            continue
+            log_file = Path(".godogen_state/stage_history.jsonl")
+            if log_file.exists():
+                completed = False
+                with open(log_file, "r") as f:
+                    for line in f:
+                        if not line.strip():
+                            continue
+                        record = json.loads(line)
+                        if record.get("completed_stage") == stage["file"]:
+                            completed = True
+                            break
+                if completed:
+                    print(f"Found {artifact} and stage completion record. Skipping {stage['file']} stage.", file=sys.stderr)
+                    continue
+                else:
+                    print(f"Warning: Artifact {artifact} exists but no record of stage {stage['file']} completion, re-running stage to ensure consistency.", file=sys.stderr)
+            else:
+                print(f"Found {artifact}. Skipping {stage['file']} stage.", file=sys.stderr)
+                continue
 
         # Enter the stage
         transition_to_stage(session, stage["file"])
 
         # Prompt the model to execute the current stage
         run_autonomous_loop(session, f"Please execute the current stage based on the instructions just provided. Let me know when you are finished.")
+
+        # Record completion
+        record_stage_completion(stage["file"])
 
 if __name__ == "__main__":
     main()

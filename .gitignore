@@ -3,6 +3,8 @@
 .playwright
 **/__pycache__
 
+.godogen_state/
+
 # Generated reference docs (recreated by ensure_doc_api.sh)
 skills/godot-api/doc_source/
 skills/godot-api/doc_api/
