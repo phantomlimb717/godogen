@@ -17,6 +17,7 @@ Read each sub-file from `.gemini/skills/` when you reach its pipeline stage.
 | `visual-target.md` | Generate reference image | Pipeline start |
 | `decomposer.md` | Decompose into task DAG | After visual target |
 | `scaffold.md` | Architecture + skeleton | After decomposition |
+| `asset-pack.md` | Pre-made GLB asset pack workflow | When `assets/packs/` exists in the project directory, before asset planning |
 | `asset-planner.md` | Budget and plan assets | If budget provided |
 | `asset-gen.md` | Asset generation CLI ref | When generating assets |
 | `rembg.md` | Background removal | Only when an asset needs transparency removed |

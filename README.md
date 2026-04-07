@@ -10,6 +10,14 @@ You describe what you want. An AI pipeline designs the architecture, generates t
 
 The system is fully decoupled and autonomous. We use a custom standalone **Gemini Orchestrator** (`gemini_orchestrator.py`) written in Python, leveraging the official `google-genai` SDK and the advanced reasoning of the `gemini-3.1-pro-preview-customtools` model.
 
+### Using asset packs
+
+Godogen detects the `assets/packs/` directory automatically at the start of each run. Pack assets must be GLB files in Godot's native format. If you have a directory of GLB files in your project, godogen will prefer those pack assets over generating new ones via Tripo3D when an exact or close match is available. Recommended sources for CC0-licensed packs that work well with this workflow are [Quaternius](https://quaternius.com) and [Kenney](https://kenney.nl).
+
+Godogen follows a strict substitution protocol for 3D assets requested by the plan. It first looks for an exact name match in the asset pack. If no exact match is found, it looks for semantic neighbors (e.g., substituting a "table" for a "desk" if appropriate) and evaluates three substitution criteria (preserving meaning, gameplay function, and visual acceptability). If no candidate passes the criteria, the pipeline falls back to generating a new asset via Tripo3D.
+
+The agent documents every substitution and fallback decision in `ASSETS.md` so users can audit the choices after a run.
+
 - **Pipeline State Machine** — The Python orchestrator natively reads your prompt, marches through the game architecture stages (scaffolding, task execution, etc.), and resumes safely if interrupted.
 - **Autonomous Tool Integration** — The AI is granted low-level Python tools (file IO, shell execution) allowing it to independently manipulate `.tscn` and `.gd` files and run Godot headless commands to build your game.
 - **Forked Sub-Agents** — When looking up massive Godot API documentations or checking screenshots via Visual QA, the orchestrator spawns isolated Gemini sub-agents with dedicated tools to avoid blowing out the main 1M-token context window.

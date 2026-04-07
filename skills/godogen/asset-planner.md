@@ -16,6 +16,12 @@ Read `.gemini/skills/asset-gen.md` for CLI reference and prompt templates.
 
 ## Workflow
 
+### Check for asset packs
+
+Before planning generated assets, check whether the directory `assets/packs/` exists in the project root.
+- If it does, read `.gemini/skills/godogen/asset-pack.md` and follow the asset-pack workflow for any 3D assets in the plan. The asset-pack workflow takes precedence over Tripo3D generation for any 3D asset where a pack match (exact or substitution) is available. Only fall back to Tripo3D generation for 3D assets that are not available in any pack (the protocol's Step 5).
+- If `assets/packs/` does not exist, proceed with the existing generation-only workflow as documented below.
+
 ### 1. Analyze inputs → identify visual elements
 
 Read `reference.png` — understand the visual composition: what objects are visible, their proportions, the environment, foreground vs background layers. Use this to inform what assets to generate and at what scale.

@@ -18,14 +18,6 @@ leverage, but reorder freely as priorities shift.
   making godogen feel like a creative tool. Effort: 1-2 days. Without this, every
   iteration is a from-scratch regeneration, which is expensive and loses prior work.
 
-- **Asset pack support.** Add a skill file (`asset-pack.md`) that teaches the
-  orchestrator to detect when a directory of pre-made GLB or PNG assets is provided,
-  prefer those assets over generation, and place them via `load() + instantiate()`
-  with explicit transforms. Enables the Quaternius / Kenney / itch.io asset pack
-  workflow and dramatically improves output quality on 3D scenes by skipping the
-  weak Tripo3D generation step entirely. Effort: 1 day. Pairs naturally with
-  amend mode.
-
 - **House rules / project preamble.** A `HOUSE_RULES.md` file in the project
   directory that gets prepended to every orchestrator prompt as default behavior.
   Lets the user customize godogen's behavior per-project without editing skill
@@ -103,6 +95,10 @@ leverage, but reorder freely as priorities shift.
   web frameworks, or app projects with the same backbone. Effort: weeks of real
   work. Strategic question rather than tactical: depends on whether godogen is
   becoming its own project or remaining a tool used to accelerate other work.
+
+## Completed
+
+- **Asset pack support.** Implemented in PR #14. Detects `assets/packs/` automatically, follows a six-step matching protocol with documented substitution and fallback, and generates pack coverage warnings when substitution rates exceed 50%.
 
 ---
 
