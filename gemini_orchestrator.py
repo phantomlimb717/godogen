@@ -316,6 +316,45 @@ def transition_to_stage(session: genai.chats.Chat, stage_file: str):
     print(f"[{timestamp}] Stage Transition: {stage_file}", file=sys.stdout)
     print(f"--- PLAN.md Changes ---\n{diff_output}\n-----------------------", file=sys.stdout)
 
+    # Handle TODO.md initialization for task-execution stage
+    todo_msg_addition = ""
+    if stage_file.endswith("task-execution.md"):
+        todo_path = Path("TODO.md")
+        if not todo_path.exists() and plan_path.exists():
+            tasks = []
+            in_tasks_section = False
+            for line in current_plan_content.splitlines():
+                # Detect sections that usually contain tasks
+                if line.strip().lower() in ["## tasks", "### tasks", "## risk tasks", "### risk tasks", "## main build", "### main build"]:
+                    in_tasks_section = True
+                    continue
+                elif line.startswith("#") and in_tasks_section:
+                    # Leaving a task section
+                    if not line.startswith("## ") and not line.startswith("### "):
+                        in_tasks_section = False
+                    # But if it's another task-like section, we keep scanning.
+                    # A more robust way: collect headers that look like tasks
+
+                # If we are in a section or just scanning for headers
+                # We'll just grab all ### or ## headers under task sections.
+                if in_tasks_section and (line.startswith("### ") or line.startswith("## ")):
+                    # Ignore the section headers themselves
+                    if line.strip().lower() not in ["## tasks", "### tasks", "## risk tasks", "### risk tasks", "## main build", "### main build"]:
+                        tasks.append(line.lstrip("#").strip())
+
+            if tasks:
+                current_task = tasks[0]
+                remaining_tasks = tasks[1:]
+
+                todo_content = f"# TODO\n\n## Current task\n{current_task}\n\n## Steps\n\n## Done (this task)\n\n## Remaining tasks\n"
+                for i, task in enumerate(remaining_tasks, 1):
+                    todo_content += f"{i}. {task}\n"
+
+                todo_path.write_text(todo_content)
+                print(f"[{timestamp}] Initialized TODO.md from PLAN.md", file=sys.stdout)
+
+        todo_msg_addition = "\n\nTODO.md has been initialized and you must use it as your active execution tracker."
+
     # Record the stage transition
     state_dir = Path(".godogen_state")
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -335,7 +374,7 @@ def transition_to_stage(session: genai.chats.Chat, stage_file: str):
 
     print(f"Transitioning to stage: {stage_file}", file=sys.stderr)
     instructions = load_stage_instructions(stage_file)
-    message = f"We are now entering a new pipeline stage. Please read these instructions carefully before proceeding:\n\n{instructions}"
+    message = f"We are now entering a new pipeline stage. Please read these instructions carefully before proceeding:\n\n{instructions}{todo_msg_addition}"
     # Send the instructions to the model without requiring immediate user action
     response = session.send_message(message)
     print(f"Model response to transition: {response.text}", file=sys.stderr)

@@ -6,6 +6,8 @@ Implementation workflow and debugging reference.
 
 When a task's verification passes, the task is complete. Do not refactor, upgrade, or improve the implementation after verification passes, even if you discover a better approach during the verification process. Immediately mark the task complete in PLAN.md and proceed to the next task. Improvements can be addressed in a future amendment if the user requests them. The discipline of stopping at 'verified working' is more important than the value of any individual improvement, because it preserves budget for the rest of the task list.
 
+During task execution, you must maintain TODO.md as your active execution tracker. Read .gemini/skills/godogen/todo-tracking.md for the format and rules. Reading TODO.md at the start of each turn and updating it at the end of each turn is a hard requirement, not a suggestion.
+
 ## Phases
 
 ### Risk tasks (if PLAN.md has any)

@@ -22,6 +22,7 @@ Read each sub-file from `.gemini/skills/` when you reach its pipeline stage.
 | `asset-gen.md` | Asset generation CLI ref | When generating assets |
 | `rembg.md` | Background removal | Only when an asset needs transparency removed |
 | `task-execution.md` | Task workflow + commands | Before first task |
+| `todo-tracking.md` | Active execution tracker for task-execution stage | Continuously throughout the task-execution stage; always read at the start of each turn and write at the end of each turn during task execution |
 | `quirks.md` | Godot gotchas | Before writing code |
 | *(godot-api skill)* | GDScript syntax ref | When unsure about GDScript syntax |
 | `scene-generation.md` | Scene builders | Targets include .tscn |
