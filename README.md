@@ -27,6 +27,12 @@ The agent documents every substitution and fallback decision in `ASSETS.md` so u
 
 ## Getting started
 
+### House Rules
+
+You can encode project-wide preferences in a `HOUSE_RULES.md` file in the root of your published project. If present, the orchestrator prepends this file to its system instructions, making it a powerful way to enforce consistent constraints (e.g., "always use WASD controls", "prefer warm lighting").
+
+The file is strictly optional and is read only at the beginning of each run. Any changes made to it during an active run will take effect on the next execution. A template with examples is automatically created when you run `publish.py`.
+
 ### Prerequisites
 
 - [Godot 4](https://godotengine.org/download/) (headless or editor) on `PATH`
