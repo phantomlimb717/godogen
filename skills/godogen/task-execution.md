@@ -2,6 +2,10 @@
 
 Implementation workflow and debugging reference.
 
+## When a task is complete
+
+When a task's verification passes, the task is complete. Do not refactor, upgrade, or improve the implementation after verification passes, even if you discover a better approach during the verification process. Immediately mark the task complete in PLAN.md and proceed to the next task. Improvements can be addressed in a future amendment if the user requests them. The discipline of stopping at 'verified working' is more important than the value of any individual improvement, because it preserves budget for the rest of the task list.
+
 ## Phases
 
 ### Risk tasks (if PLAN.md has any)
@@ -38,7 +42,7 @@ After each phase: update PLAN.md, write discoveries to MEMORY.md, git commit.
 
 Steps 2-9 form an **implement -> screenshot -> verify -> VQA** loop.
 
-There is no fixed iteration limit — use judgment:
+There is no fixed iteration limit before initial verification, not after — use judgment:
 - If there is progress — even in small, iterative steps — keep going. Screenshots and file updates are cheap.
 - If you recognize a **fundamental limitation** (wrong architecture, missing engine feature, broken assumption), stop early — even after 2-5 iterations. More loops won't help.
 - The signal to stop is **"I'm making the same kind of fix repeatedly without convergence"**.
