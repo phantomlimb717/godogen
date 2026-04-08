@@ -558,11 +558,8 @@ def run_autonomous_loop(session: genai.chats.Chat, message: str):
                                 ORCHESTRATOR_STATE["reflection_triggered_for_task"] = True
 
                 if ORCHESTRATOR_STATE.get("trigger_reflection"):
-                    reflection_part = types.Part.from_function_response(
-                        name="reflection_trigger",
-                        response={"result": reflection_prompt}
-                    )
-                    function_responses.insert(0, reflection_part)
+                    reflection_part = types.Part(text=reflection_prompt)
+                    function_responses.append(reflection_part)
                     ORCHESTRATOR_STATE["trigger_reflection"] = False
 
                 # Send the tool output back to the model, which returns the next step
