@@ -522,40 +522,42 @@ def run_autonomous_loop(session: genai.chats.Chat, message: str):
             ORCHESTRATOR_STATE["turn_counter"] += 1
             print_status_line()
 
-            # Check if the model decided to call any tools
-            if response.function_calls:
-                function_responses = process_function_calls(response.function_calls)
+            # Reflection check
+            current_stage = ORCHESTRATOR_STATE.get("current_stage", "")
+            if current_stage.endswith("task-execution.md") or current_stage.endswith("amend.md"):
+                todo_path = Path("TODO.md")
+                if todo_path.exists():
+                    todo_content = todo_path.read_text().splitlines()
+                    parsed_task = None
+                    for i, line in enumerate(todo_content):
+                        if line.strip().lower() == "## current task":
+                            if i + 1 < len(todo_content):
+                                parsed_task = todo_content[i + 1].strip()
+                            break
 
-                # Reflection check
-                current_stage = ORCHESTRATOR_STATE.get("current_stage", "")
-                if current_stage.endswith("task-execution.md") or current_stage.endswith("amend.md"):
-                    todo_path = Path("TODO.md")
-                    if todo_path.exists():
-                        todo_content = todo_path.read_text().splitlines()
-                        parsed_task = None
-                        for i, line in enumerate(todo_content):
-                            if line.strip().lower() == "## current task":
-                                if i + 1 < len(todo_content):
-                                    parsed_task = todo_content[i + 1].strip()
-                                break
+                    if parsed_task:
+                        if parsed_task == ORCHESTRATOR_STATE["current_todo_task"]:
+                            ORCHESTRATOR_STATE["task_turn_count"] += 1
+                        else:
+                            ORCHESTRATOR_STATE["current_todo_task"] = parsed_task
+                            ORCHESTRATOR_STATE["task_turn_count"] = 1
+                            ORCHESTRATOR_STATE["task_file_writes"] = {}
+                            ORCHESTRATOR_STATE["reflection_triggered_for_task"] = False
 
-                        if parsed_task:
-                            if parsed_task == ORCHESTRATOR_STATE["current_todo_task"]:
-                                ORCHESTRATOR_STATE["task_turn_count"] += 1
-                            else:
-                                ORCHESTRATOR_STATE["current_todo_task"] = parsed_task
-                                ORCHESTRATOR_STATE["task_turn_count"] = 1
-                                ORCHESTRATOR_STATE["task_file_writes"] = {}
-                                ORCHESTRATOR_STATE["reflection_triggered_for_task"] = False
+                        turn_count = ORCHESTRATOR_STATE["task_turn_count"]
+                        writes_dict = ORCHESTRATOR_STATE["task_file_writes"]
+                        max_writes = max(writes_dict.values()) if writes_dict else 0
 
-                            turn_count = ORCHESTRATOR_STATE["task_turn_count"]
-                            writes_dict = ORCHESTRATOR_STATE["task_file_writes"]
-                            max_writes = max(writes_dict.values()) if writes_dict else 0
+                        if (turn_count > 5 or max_writes > 3) and not ORCHESTRATOR_STATE["reflection_triggered_for_task"]:
+                            print(f"[REFLECTION TRIGGER] Task '{parsed_task}' has been active for {turn_count} turns. Forcing reflection.", file=sys.stderr)
+                            ORCHESTRATOR_STATE["trigger_reflection"] = True
+                            ORCHESTRATOR_STATE["reflection_triggered_for_task"] = True
 
-                            if (turn_count > 5 or max_writes > 3) and not ORCHESTRATOR_STATE["reflection_triggered_for_task"]:
-                                print(f"[REFLECTION TRIGGER] Task '{parsed_task}' has been active for {turn_count} turns. Forcing reflection.", file=sys.stderr)
-                                ORCHESTRATOR_STATE["trigger_reflection"] = True
-                                ORCHESTRATOR_STATE["reflection_triggered_for_task"] = True
+            # Check if the model decided to call any tools or if reflection is triggered
+            if response.function_calls or ORCHESTRATOR_STATE.get("trigger_reflection"):
+                function_responses = []
+                if response.function_calls:
+                    function_responses = process_function_calls(response.function_calls)
 
                 if ORCHESTRATOR_STATE.get("trigger_reflection"):
                     reflection_part = types.Part(text=reflection_prompt)
