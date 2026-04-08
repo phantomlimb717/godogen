@@ -37,7 +37,10 @@ ORCHESTRATOR_STATE = {
     "task_turn_count": 0,
     "task_file_writes": {},
     "reflection_triggered_for_task": False,
-    "trigger_reflection": False
+    "trigger_reflection": False,
+    "turn_counter": 0,
+    "estimated_cost_cents": 0.0,
+    "warned_missing_usage": False
 }
 
 STAGE_ALLOWED_TOOLS = {
@@ -48,6 +51,94 @@ STAGE_ALLOWED_TOOLS = {
     ".gemini/skills/godogen/task-execution.md": ["run_asset_gen", "run_tripo3d", "run_visual_qa_analysis", "read_file", "write_file", "list_files", "run_bash_command", "lookup_godot_api"],
     ".gemini/skills/godogen/amend.md": ["run_asset_gen", "run_tripo3d", "run_visual_qa_analysis", "read_file", "write_file", "list_files", "run_bash_command", "lookup_godot_api"]
 }
+
+def get_current_task_info():
+    """Parses TODO.md for current task name and task index."""
+    try:
+        todo_path = Path("TODO.md")
+        if not todo_path.exists():
+            return None, None
+
+        content = todo_path.read_text()
+        lines = [line.strip() for line in content.splitlines()]
+
+        task_name = None
+        in_current_task = False
+        for line in lines:
+            if line.lower() == "## current task":
+                in_current_task = True
+                continue
+            if in_current_task:
+                if line and not line.startswith("##"):
+                    task_name = line
+                    break
+                elif line.startswith("##"):
+                    break
+
+        in_remaining_tasks = False
+        remaining_count = 0
+        for line in lines:
+            if line.lower() == "## remaining tasks":
+                in_remaining_tasks = True
+                continue
+            if in_remaining_tasks:
+                if line.startswith("##"):
+                    break
+                # Only count non-empty lines that look like list items
+                if line and (line[0].isdigit() or line.startswith("-") or line.startswith("*")):
+                    remaining_count += 1
+
+        if task_name:
+            task_index = f"1/{remaining_count + 1}"
+            return task_name, task_index
+        else:
+            return None, None
+    except Exception:
+        return None, None
+
+def print_status_line():
+    """Constructs and prints the status line to stderr."""
+    stage_path = ORCHESTRATOR_STATE.get("current_stage", "unknown")
+    stage_name = os.path.basename(stage_path).replace(".md", "")
+
+    task_name, task_index = get_current_task_info()
+    if task_name and task_index:
+        task_str = f"Task {task_index} ({task_name})"
+    else:
+        task_str = "Task: n/a"
+
+    turn_counter = ORCHESTRATOR_STATE.get("turn_counter", 0)
+    cost_cents = ORCHESTRATOR_STATE.get("estimated_cost_cents", 0.0)
+    cost_dollars = cost_cents / 100.0
+
+    status_line = f"[STATUS] Stage: {stage_name} | {task_str} | Turn {turn_counter} | Cost: ${cost_dollars:.2f}"
+    print(status_line, file=sys.stderr)
+
+def accumulate_gemini_cost(response, model_id: str):
+    """Accumulates cost based on token usage in the Gemini API response."""
+    if not hasattr(response, "usage_metadata") or response.usage_metadata is None:
+        if not ORCHESTRATOR_STATE.get("warned_missing_usage"):
+            print("Warning: Gemini API response is missing usage_metadata. Cost tracking may be incomplete.", file=sys.stderr)
+            ORCHESTRATOR_STATE["warned_missing_usage"] = True
+        return
+
+    usage = response.usage_metadata
+    prompt_tokens = getattr(usage, "prompt_token_count", 0)
+    candidates_tokens = getattr(usage, "candidates_token_count", 0)
+
+    # Rates per million tokens (in dollars)
+    rates = {
+        "gemini-3.1-pro-preview-customtools": {"input": 1.25, "output": 5.00},
+        "gemini-3.1-flash-lite-preview": {"input": 0.10, "output": 0.40}
+    }
+
+    if model_id in rates:
+        input_rate = rates[model_id]["input"]
+        output_rate = rates[model_id]["output"]
+
+        cost_dollars = (prompt_tokens * input_rate + candidates_tokens * output_rate) / 1_000_000
+        cost_cents = cost_dollars * 100
+        ORCHESTRATOR_STATE["estimated_cost_cents"] += cost_cents
 
 def get_gemini_client() -> genai.Client:
     """Initialize and return the Gemini Client."""
@@ -67,6 +158,7 @@ def load_stage_instructions(filepath: str) -> str:
 
 import subprocess
 import json
+import re
 
 def run_asset_gen(command: str, prompt: str, image: str = None, duration: int = None, size: str = "1K", aspect_ratio: str = "1:1", output: str = "assets/output.png") -> str:
     """Run the asset generator (images or videos)."""
@@ -81,6 +173,16 @@ def run_asset_gen(command: str, prompt: str, image: str = None, duration: int = 
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+
+        # Parse the cost from the JSON output
+        match = re.search(r'\{.*"cost_cents":\s*(\d+).*\}', result.stdout)
+        if match:
+            try:
+                cost_cents = int(match.group(1))
+                ORCHESTRATOR_STATE["estimated_cost_cents"] += cost_cents
+            except ValueError:
+                pass
+
         return f"Success: {result.stdout}"
     except subprocess.CalledProcessError as e:
         return f"Error running asset_gen.py: {e.stderr}"
@@ -170,12 +272,14 @@ def lookup_godot_api(query: str, model: str = None) -> str:
 
     session = client.chats.create(model=model_id, config=config)
     response = session.send_message(f"Lookup Godot API query: {query}")
+    accumulate_gemini_cost(response, model_id)
 
     # Run the autonomous tool loop for the sub-agent until it delivers the final text answer
     while True:
         if response.function_calls:
             function_responses = process_function_calls(response.function_calls, enforce_stage_gates=False)
             response = session.send_message(function_responses)
+            accumulate_gemini_cost(response, model_id)
         else:
             if response.text:
                 return response.text
@@ -386,6 +490,7 @@ def transition_to_stage(session: genai.chats.Chat, stage_file: str):
     message = f"We are now entering a new pipeline stage. Please read these instructions carefully before proceeding:\n\n{instructions}{todo_msg_addition}"
     # Send the instructions to the model without requiring immediate user action
     response = session.send_message(message)
+    accumulate_gemini_cost(response, MODEL_CONFIG["main_orchestrator"])
     print(f"Model response to transition: {response.text}", file=sys.stderr)
 
 def run_autonomous_loop(session: genai.chats.Chat, message: str):
@@ -411,8 +516,12 @@ def run_autonomous_loop(session: genai.chats.Chat, message: str):
     try:
         # We must manually handle the tool loop to print tool calls to the console in real-time
         response = session.send_message(message)
+        accumulate_gemini_cost(response, MODEL_CONFIG["main_orchestrator"])
 
         while True:
+            ORCHESTRATOR_STATE["turn_counter"] += 1
+            print_status_line()
+
             # Check if the model decided to call any tools
             if response.function_calls:
                 function_responses = process_function_calls(response.function_calls)
@@ -458,6 +567,7 @@ def run_autonomous_loop(session: genai.chats.Chat, message: str):
 
                 # Send the tool output back to the model, which returns the next step
                 response = session.send_message(function_responses)
+                accumulate_gemini_cost(response, MODEL_CONFIG["main_orchestrator"])
             else:
                 # No tool calls made, the agent is responding with final text.
                 if response.text:
